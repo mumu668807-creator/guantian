@@ -13,35 +13,42 @@ const readBody = async (request: IncomingMessage) =>
     request.on('error', reject)
   })
 
-const sendJson = (response: ServerResponse, statusCode: number, payload: unknown) => {
+const sendJson = (response: ServerResponse, statusCode: number, payload: unknown, sendBody = true) => {
   response.writeHead(statusCode, {
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Origin': process.env.CORS_ORIGIN?.trim() || '*',
     'Content-Type': 'application/json; charset=utf-8',
   })
-  response.end(JSON.stringify(payload))
+  response.end(sendBody ? JSON.stringify(payload) : undefined)
 }
 
 const env = getLlmEnv()
 
+const getPathname = (request: IncomingMessage) => {
+  const url = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`)
+  return url.pathname.replace(/\/+$/, '') || '/'
+}
+
 const server = createServer(async (request, response) => {
+  const pathname = getPathname(request)
+
   if (request.method === 'OPTIONS') {
     sendJson(response, 204, {})
     return
   }
 
-  if (request.method === 'GET' && request.url === '/api/health') {
+  if ((request.method === 'GET' || request.method === 'HEAD') && pathname === '/api/health') {
     sendJson(response, 200, {
       ok: true,
       provider: env.provider,
       model: env.model,
       hasKey: Boolean(env.apiKey),
-    })
+    }, request.method !== 'HEAD')
     return
   }
 
-  if (request.method !== 'POST' || request.url !== '/api/interpret') {
+  if (request.method !== 'POST' || pathname !== '/api/interpret') {
     sendJson(response, 404, { error: 'Not found' })
     return
   }
@@ -65,4 +72,23 @@ const server = createServer(async (request, response) => {
 server.listen(env.port, '0.0.0.0', () => {
   console.log(`LLM proxy listening on 0.0.0.0:${env.port}`)
   console.log(`LLM provider: ${env.provider}`)
+})
+
+server.on('error', (error) => {
+  console.error('LLM proxy server error:', error)
+  process.exitCode = 1
+})
+
+process.on('SIGTERM', () => {
+  console.log('LLM proxy received SIGTERM, shutting down')
+  server.close(() => {
+    process.exit(0)
+  })
+})
+
+process.on('SIGINT', () => {
+  console.log('LLM proxy received SIGINT, shutting down')
+  server.close(() => {
+    process.exit(0)
+  })
 })
