@@ -3,10 +3,20 @@ import { extname, join } from 'node:path'
 import { readdirSync, statSync } from 'node:fs'
 
 const roots = ['src', 'scripts']
-const extensions = new Set(['.ts', '.tsx', '.mjs'])
+const extensions = new Set(['.ts', '.tsx', '.mjs', '.css'])
 const forbidden = [
+  ['大', '衍', '法'].join(''),
+  ['大', '眼', '法'].join(''),
+  ['大', '演', '法'].join(''),
+  ['大', '眼', '筮', '法'].join(''),
+  ['大', '演', '筮', '法'].join(''),
+  ['大', '衍', '示', '法'].join(''),
+  ['此', '图'].join(''),
+  ['图', '象'].join(''),
   ['此', '图', '照', '见'].join(''),
   ['此', '图', '照', '荐'].join(''),
+  ['此', '挂'].join(''),
+  ['挂', '象'].join(''),
   ['此', '挂', '照', '见'].join(''),
   ['此', '挂', '照', '荐'].join(''),
   ['此', '卦', '照', '荐'].join(''),
@@ -39,6 +49,7 @@ for (const file of files) {
   for (const word of forbidden) {
     if (text.includes(word)) failures.push(`${file}: ${word}`)
   }
+  if (/\>\s*易\s*\</.test(text)) failures.push(`${file}: 按钮或文本节点疑似误用“易”`)
 }
 
 if (failures.length) {

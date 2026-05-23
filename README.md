@@ -55,6 +55,48 @@ npm run build
 - 每三变累计一条 `lineRecord`，六爻从下往上生成。
 - `manualDayan.ts` 内置合法性断言：初变只允许去策 5/9，二变和三变只允许去策 4/8。
 - “此卦照见”不是 AI 自由发挥，而是先根据动爻数量从正式资料库取卦辞/爻辞，再通过可替换 provider 生成札记。
+- 可选接入 Supabase Auth：Google 登录与 Email magic link。接入后，每个用户每天只能正式起卦一次，这不是付费限制，而是“卦不可乱起”的仪式规则。
+
+## 轻量用户系统
+
+《观天》的用户系统只用于“进入空间”和“一天一卦”，不做账号中心、等级或社交功能。
+
+前端使用 Supabase Auth：
+
+- Google 登录。
+- Email magic link。
+- 不做密码注册。
+- 不使用 service role key。
+- `.env` 只放 Supabase public URL 和 anon key。
+
+```bash
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+Supabase 数据库执行：
+
+```sql
+-- 复制 supabase/schema.sql 到 Supabase SQL Editor 执行
+```
+
+核心表为 `guantian_profiles`，记录：
+
+```text
+id
+last_cast_at
+created_at
+updated_at
+```
+
+起筮前会调用 `claim_daily_cast()`：
+
+- 如果今天尚未起卦，写入 `last_cast_at` 并允许进入仪式。
+- 如果今天已经起卦，显示：
+  - 英文：`Today's hexagram has already been cast. Let it sit for a while.`
+  - 中文：`今日已起一卦。先等一等。`
+
+这条规则属于仪式节制，不是产品权限限制。
 
 ## 此卦照见取辞规则
 

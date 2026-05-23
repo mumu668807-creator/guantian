@@ -6,6 +6,7 @@
 - 后端：Railway
 - 模型密钥：只放 Railway 环境变量
 - 前端通过 `VITE_API_BASE_URL` 调 Railway 后端
+- 登录：Supabase Auth，前端只使用 public URL 和 anon key
 
 ## 部署前检查
 
@@ -20,6 +21,7 @@
 - 后端测试阶段默认允许 `*` CORS，也可用 `CORS_ORIGIN` 收紧。
 - 前端开发环境继续请求 `/api/interpret`，由 Vite proxy 转发到本地后端。
 - 前端生产环境请求 `${VITE_API_BASE_URL}/api/interpret`。
+- Supabase service role key 不进入前端，也不要提交到仓库。
 - `.env` 已加入 `.gitignore`，不要提交真实 API key。
 
 ## 后端部署到 Railway
@@ -119,9 +121,35 @@ dist
 
 ```text
 VITE_API_BASE_URL=https://your-service-name.up.railway.app
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=你的 Supabase anon public key
 ```
 
 不要在 Vercel 配置 `LLM_API_KEY`，也不要添加 `VITE_LLM_API_KEY`。
+不要在 Vercel 配置 Supabase `service_role` key。
+
+## Supabase Auth 配置
+
+Supabase 项目中需要：
+
+1. 执行 `supabase/schema.sql`。
+2. 开启 Email provider。
+3. 如需 Google 登录，开启 Google provider 并填写 OAuth 配置。
+4. 在 Authentication → URL Configuration 中设置：
+
+```text
+Site URL=https://你的-vercel-前端域名.vercel.app
+```
+
+Redirect URLs 至少加入：
+
+```text
+https://你的-vercel-前端域名.vercel.app
+http://localhost:5173
+http://127.0.0.1:5173
+```
+
+如果使用 Vercel Preview 域名，也要把对应 preview 域名加入 Redirect URLs。
 
 ## 部署顺序
 
@@ -131,8 +159,11 @@ VITE_API_BASE_URL=https://your-service-name.up.railway.app
 4. 测试 Railway `/api/interpret`。
 5. 拿到 Railway 后端域名。
 6. 部署 Vercel 前端。
-7. 在 Vercel 配置 `VITE_API_BASE_URL` 为 Railway 后端域名。
-8. 打开 Vercel 前端链接，完成一次“测试成卦”或正式起筮，再点“此卦照见”。
+7. 在 Vercel 配置 `VITE_API_BASE_URL / VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY`。
+8. 在 Supabase 配置 Vercel 域名为 Site URL 和 Redirect URL。
+9. 打开 Vercel 前端链接，测试 Email magic link。
+10. 登录后正式起筮一次，再刷新或复位尝试第二次起筮，确认“一天一卦”提示生效。
+11. 成卦后点“此卦照见”，确认 Railway 解读接口正常。
 
 ## 常见错误
 
@@ -173,6 +204,28 @@ CORS_ORIGIN=https://你的-vercel-前端域名.vercel.app
 - 确认 Vercel 配置了 `VITE_API_BASE_URL`。
 - 修改后重新部署前端。
 - 浏览器硬刷新。
+
+### Magic link 回不到网站
+
+现象：邮件能收到，但点开后没有回到 Vercel 网站，或登录状态没有生效。
+
+处理：
+
+- 确认 Supabase `Site URL` 是 Vercel 正式域名。
+- 确认 `Redirect URLs` 包含 Vercel 正式域名。
+- 如果在本地测试，加入 `http://localhost:5173` 和 `http://127.0.0.1:5173`。
+- 修改 Supabase URL 配置后重新发送 magic link。
+
+### 每日一卦限制不生效
+
+现象：同一账号一天可以多次正式起筮。
+
+处理：
+
+- 确认 `supabase/schema.sql` 已执行。
+- 确认 Supabase 中存在 `public.claim_daily_cast()`。
+- 确认 `guantian_profiles` 表开启 RLS。
+- 确认前端已配置 `VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY`。
 
 ### Railway 休眠或冷启动
 

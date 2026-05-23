@@ -1,96 +1,296 @@
 import type { AIProvider } from './provider'
 
 type ParsedPrompt = {
+  language: 'en' | 'zh'
   question: string
   primaryName: string
   primaryJudgment: string
   movingLines: string
+  movingLineNames: string
   movingLineTexts: string
   changedName: string
   changedJudgment: string
   rule: string
 }
 
-const readBlock = (prompt: string, label: string, nextLabels: string[]) => {
-  const startToken = `${label}：`
-  const start = prompt.indexOf(startToken)
-  if (start < 0) return ''
-
-  const contentStart = start + startToken.length
-  const endIndexes = nextLabels
-    .map((nextLabel) => prompt.indexOf(`\n\n${nextLabel}：`, contentStart))
-    .filter((index) => index >= 0)
-  const end = endIndexes.length ? Math.min(...endIndexes) : prompt.length
-
-  return prompt.slice(contentStart, end).trim()
+type JudgmentTheme = {
+  questionType: string
+  tendencyZh: string
+  tendencyEn: string
+  basisZh: string
+  basisEn: string
+  currentZh: string
+  currentEn: string
+  movingZh: string
+  movingEn: string
+  trendZh: string
+  trendEn: string
+  tensionZh: string
+  tensionEn: string
+  avoidZh: string[]
+  avoidEn: string[]
+  doZh: string[]
+  doEn: string[]
+  signalZh: string
+  signalEn: string
+  pushZh: string
+  pushEn: string
+  closingZh: string
+  closingEn: string
 }
 
-const parseName = (line: string) => line.replace(/（.*$/, '').trim() || '未名卦'
+const readContext = (prompt: string, key: string) => {
+  const token = `${key}:`
+  const start = prompt.indexOf(token)
+  if (start < 0) return ''
 
-const parsePrompt = (prompt: string): ParsedPrompt => ({
-  question: readBlock(prompt, '用户问题', ['本卦']) || '未书之问',
-  primaryName: parseName(readBlock(prompt, '本卦', ['本卦卦辞'])),
-  primaryJudgment: readBlock(prompt, '本卦卦辞', ['动爻']),
-  movingLines: readBlock(prompt, '动爻', ['动爻爻辞']),
-  movingLineTexts: readBlock(prompt, '动爻爻辞', ['变卦']),
-  changedName: parseName(readBlock(prompt, '变卦', ['变卦卦辞'])),
-  changedJudgment: readBlock(prompt, '变卦卦辞', ['取辞规则']),
-  rule: readBlock(prompt, '取辞规则', ['请严格按照以下结构输出']),
-})
+  const contentStart = start + token.length
+  const next = prompt.slice(contentStart).match(/\n[A-Z_]+:/)
+  const end = next?.index === undefined ? prompt.indexOf('【/CONTEXT】', contentStart) : contentStart + next.index
+  return prompt.slice(contentStart, end < 0 ? prompt.length : end).trim()
+}
+
+const cleanName = (name: string) => name.replace(/卦|\sgua$/i, '').trim() || '未名'
+
+const parsePrompt = (prompt: string): ParsedPrompt => {
+  const language = readContext(prompt, 'OUTPUT_LANGUAGE') === 'en' ? 'en' : 'zh'
+  return {
+    language,
+    question: readContext(prompt, 'USER_QUESTION') || (language === 'en' ? 'unwritten question' : '未书之问'),
+    primaryName: cleanName(readContext(prompt, 'PRIMARY_HEXAGRAM_NAME')),
+    primaryJudgment: readContext(prompt, 'PRIMARY_HEXAGRAM_TEXT'),
+    movingLines: readContext(prompt, 'MOVING_LINES') || (language === 'en' ? 'none' : '无'),
+    movingLineNames: readContext(prompt, 'MOVING_LINE_NAMES') || (language === 'en' ? 'none' : '无动爻'),
+    movingLineTexts: readContext(prompt, 'MOVING_LINE_TEXTS'),
+    changedName: cleanName(readContext(prompt, 'CHANGED_HEXAGRAM_NAME')),
+    changedJudgment: readContext(prompt, 'CHANGED_HEXAGRAM_TEXT'),
+    rule: readContext(prompt, 'SELECTION_RULE'),
+  }
+}
 
 const includesAny = (text: string, words: string[]) => words.some((word) => text.includes(word))
 
-const themeFor = (input: ParsedPrompt) => {
+const inferQuestionTypeZh = (question: string) => {
+  if (includesAny(question, ['感情', '喜欢', '复合', '分手', '关系', '恋', '婚'])) return '感情'
+  if (includesAny(question, ['合作', '合伙', '客户', '项目', '合同'])) return '合作'
+  if (includesAny(question, ['工作', '事业', '岗位', '升职', '公司', '创业'])) return '事业'
+  if (includesAny(question, ['钱', '财', '投资', '回款', '收入', '资金'])) return '财务'
+  if (includesAny(question, ['家', '父母', '孩子', '家庭'])) return '家庭'
+  if (includesAny(question, ['要不要', '该不该', '能不能', '会不会', '选', '决定'])) return '决策'
+  return '此事'
+}
+
+const inferQuestionTypeEn = (question: string) => {
+  const lower = question.toLowerCase()
+  if (includesAny(lower, ['love', 'relationship', 'marriage', 'breakup', 'partner'])) return 'relationship'
+  if (includesAny(lower, ['partner', 'client', 'contract', 'collaboration', 'project'])) return 'collaboration'
+  if (includesAny(lower, ['work', 'career', 'job', 'company', 'promotion', 'business'])) return 'work'
+  if (includesAny(lower, ['money', 'investment', 'income', 'payment', 'fund'])) return 'money'
+  if (includesAny(lower, ['family', 'parent', 'child', 'home'])) return 'family'
+  if (includesAny(lower, ['should', 'whether', 'choice', 'decide', 'can it', 'will it'])) return 'decision'
+  return 'this matter'
+}
+
+const hasNoMovingLines = (input: ParsedPrompt) =>
+  input.movingLines === 'none' || input.movingLines === '无' || input.movingLineNames.includes('none')
+
+const themeFor = (input: ParsedPrompt): JudgmentTheme => {
   const corpus = `${input.primaryName}${input.primaryJudgment}${input.movingLineTexts}${input.changedName}${input.changedJudgment}`
+  const questionTypeZh = inferQuestionTypeZh(input.question)
+  const questionTypeEn = inferQuestionTypeEn(input.question)
+  const lineName = hasNoMovingLines(input) ? '无动爻' : input.movingLineNames
+  const lineNameEn = hasNoMovingLines(input) ? 'no moving line' : input.movingLineNames
 
   if (includesAny(corpus, ['需', '酒食', '待', '涉大川'])) {
     return {
-      root: '此卦的根基不是进攻，而是等待中的守正。事情面前有水，有险，也有可渡之处；现在最要紧的不是抢先，而是让时机熟透。',
-      change: '动处落在“需于酒食，贞吉”一类语气上，它不催你出门争胜，而让你先把内里的秩序安顿好。能坐得住，局势才不会被焦虑牵走。',
-      trend: '变卦所指向的趋势，是从等待转向联结与归附。等不是停滞，而是在让人、资源、证据慢慢靠拢。',
-      conflict: '你困住的不是不知道答案，而是想用提前行动消灭不确定。',
-      misread: '最容易误判的是：把“慢”看成失败，把暂不推进看成失控。',
-      risk: '风险在于过早表态、过早投入、过早要求对方或局势给出确定回应。这样会把本来可成的势，逼成紧张。',
-      dont: ['不要急着逼问结果。', '不要用一次情绪高涨时的判断替代长期观察。', '不要为了证明自己主动，而做超出证据的承诺。'],
-      doNow: ['把已经确定的事实列出来，把猜测单独放一栏。', '维持节奏，不撤退，也不强攻。', '等待一个外部信号成熟后再推进下一步。'],
-      action: '三日内，只做一件小事：给这件事设一个观察点，写下“什么出现时我才行动”。',
-      principle: '能等到火候的人，不是软弱，是知道力气该落在哪里。',
-      closing: '卦像一张案上的水：它没有叫你退，也没有叫你冲。它只是让你看见，真正的门还没有完全开。先稳住手，守住中正，把心从催促里收回来；时机成熟时，路会比现在清楚。',
+      questionType: input.language === 'en' ? questionTypeEn : questionTypeZh,
+      tendencyZh: '这事偏成，但慢；能往前走，不能硬推。',
+      tendencyEn: 'This leans toward possible, but slow. The situation has not fully ripened yet, and pressure would likely work against it.',
+      basisZh: `本卦是${input.primaryName}，主等；动爻${lineName}，落在“需于酒食，贞吉”的意思上；变卦是${input.changedName}，后面有转通的口子。`,
+      basisEn: `The primary gua is ${input.primaryName}, which points to waiting under real conditions. The moving line ${lineNameEn} keeps the matter in a steadier place rather than forcing it. The changed gua, ${input.changedName}, suggests that the blockage can open if the timing is handled well.`,
+      currentZh: `问的是${questionTypeZh}，需卦就是等。不是不能成，是条件还没齐。这里可能有资源、回应、时间或对方状态没到位。`,
+      currentEn: `For ${questionTypeEn}, ${input.primaryName} does not simply say no. It says the conditions are still forming. Something external still needs to answer, arrive, or become clear.`,
+      movingZh: hasNoMovingLines(input)
+        ? '无动爻时，看整体。关键不在突然转折，而在守住等待的分寸。'
+        : `动在${lineName}。这爻不是叫你冲，是叫你稳住位置。转机在“能承接”，不在“抢结果”。`,
+      movingEn: hasNoMovingLines(input)
+        ? 'With no moving line, the reading stays with the overall structure. The key is not a sudden turn, but how well the waiting is held.'
+        : `The moving line is ${lineNameEn}. It does not favor a push. It favors staying available, steady, and ready to receive the next opening.`,
+      trendZh: `${input.changedName}说明后面不是全堵。短期慢，后面有通的可能。`,
+      trendEn: `${input.changedName} points to some later opening. The short term is slow, but the matter is not closed if handled without pressure.`,
+      tensionZh: '你急着要结果，但卦让你先等条件。',
+      tensionEn: 'The tension is between wanting an answer now and needing the conditions to mature first.',
+      avoidZh: ['不要逼问最后结果。', '不要在条件未齐时加码。', '不要把延迟直接当失败。'],
+      avoidEn: ['Do not press for a final answer now.', 'Do not add commitment before the missing condition is clear.', 'Do not treat delay as refusal too quickly.'],
+      doZh: ['把已经具备的条件和缺口列清楚。', '只做一次低压确认。', '守住稳定回应，不要追着要结果。'],
+      doEn: ['List what is already in place and what is still missing.', 'Make one low-pressure clarification.', 'Stay steady rather than chasing the outcome.'],
+      signalZh: '三日内看是否出现明确回复、时间确认、资源到位，或对方主动补信息。',
+      signalEn: 'Within three days, watch for a clearer reply, a confirmed time, a resource becoming available, or the other side adding information without being pushed.',
+      pushZh: '只问下一步条件或时间点，不逼态度。',
+      pushEn: 'Ask only about the next condition or timing. Do not force a position.',
+      closingZh: '此事偏成，但慢；守住节奏可通，急推则坏。',
+      closingEn: 'This can move, but slowly. Let the situation ripen; pressure would narrow the opening rather than widen it.',
     }
   }
 
-  if (includesAny(corpus, ['泰', '交', '小往大来', '亨'])) {
+  if (includesAny(corpus, ['讼', '争', '不利涉大川'])) {
     return {
-      root: '此卦显出通达之象，但通达不是任意扩张，而是上下能相接，内外有交换。',
-      change: '动爻提示变化发生在分寸处：有些东西已经松动，但还需要位置、礼数和节制来承接。',
-      trend: '趋势偏向由闭塞转为可通。真正有用的，不是声势，而是关系和秩序重新流动。',
-      conflict: '你困住的不是机会太少，而是不确定自己该用多大的力进入局面。',
-      misread: '最容易误判的是：把顺势当成万事无碍，忽略了每一步仍要守位。',
-      risk: '风险在于乐观过头，或在局势刚刚转顺时急着收割。',
-      dont: ['不要把短暂顺利当作长期保证。', '不要越过必要的确认。'],
-      doNow: ['保持往来通畅。', '把能公开说清的条件先说清。'],
-      action: '三日内，补上一条被你略过的确认。',
-      principle: '通达之时，越要让事情有秩序地通过。',
-      closing: '此卦不替你许诺结果，只提醒你：路若开始通，不要用急躁把它重新堵住。让该来的来，让该定的定，人的心稳，局面才稳。',
+      questionType: input.language === 'en' ? questionTypeEn : questionTypeZh,
+      tendencyZh: '这事现在不利硬碰硬。能不能成，先看争执和责任怎么划清。',
+      tendencyEn: 'This is not favorable for direct pressure. The outcome depends less on force and more on how responsibility, rules, or disagreement are handled.',
+      basisZh: `本卦${input.primaryName}不是小矛盾；动爻${lineName}指向争处；变卦${input.changedName}看后续能不能从对立里退出来。`,
+      basisEn: `${input.primaryName} is not a small friction pattern. It points to conflict, competing accounts, or responsibility. The changed gua, ${input.changedName}, shows whether the matter can move out of opposition.`,
+      currentZh: `问的是${questionTypeZh}，这里不是单纯推进不了，是双方现在说不到一起。`,
+      currentEn: `For ${questionTypeEn}, this is not merely a delay. The structure suggests disagreement, unclear responsibility, or rules that both sides are using differently.`,
+      movingZh: `动处在${lineName}。真正会变的是争执的处理方式，不是你多用力就能成。`,
+      movingEn: `The moving point is ${lineNameEn}. What changes is how the conflict is handled, not how hard you push.`,
+      trendZh: `${input.changedName}说明后续要看能不能收束争端。收得住，还有机会；收不住，就拖。`,
+      trendEn: `${input.changedName} suggests the next phase depends on whether the dispute can be contained. If it can, there is room; if not, it drags.`,
+      tensionZh: '问题不在想不想成，而在谁认账、谁让步、按什么规则走。',
+      tensionEn: 'The issue is not only desire. It is who accepts what, who adjusts, and which rule the matter follows.',
+      avoidZh: ['不要靠情绪压人。', '不要越过规则。', '不要把责任说得含糊。'],
+      avoidEn: ['Do not pressure through emotion.', 'Do not bypass the rule or agreement.', 'Do not leave responsibility vague.'],
+      doZh: ['把争议点写下来。', '确认对方真正不同意的是哪一条。', '先求可执行的小共识。'],
+      doEn: ['Write down the exact point of disagreement.', 'Clarify what the other side actually objects to.', 'Seek one small agreement that can be acted on.'],
+      signalZh: '三日内看对方是否愿意就具体条款、责任或时间点说清楚。',
+      signalEn: 'Within three days, watch whether the other side is willing to clarify a specific term, responsibility, or timeline.',
+      pushZh: '先问“我们卡在哪一条”，不要问“到底成不成”。',
+      pushEn: 'Ask “Which point is blocking this?” rather than “Will this work or not?”',
+      closingZh: '此卦不利硬碰硬；先把争处说清，才有往前走的路。',
+      closingEn: 'This is not a moment for force. Name the point of conflict first; only then can the matter move.',
     }
   }
 
   return {
-    root: `${input.primaryName}所示，是此问当下的底色。卦辞说“${input.primaryJudgment}”，重点不在吉凶二字，而在它暴露了局势的结构。`,
-    change: input.movingLineTexts.includes('无动爻')
-      ? '此卦无动爻，说明此刻变化不在单一节点上，而在整体格局中。先看全局，比急着抓某一处更要紧。'
-      : `动爻原文为“${input.movingLineTexts}”。变动处不是装饰，它指出此事里最不稳定、也最需要你看清的位置。`,
-    trend: `${input.changedName}作为趋势，不是结论书，而是一条可能展开的路。变卦卦辞说“${input.changedJudgment}”，它提醒你看后续的方向，而不是迷信一次判断。`,
-    conflict: '你困住的不是表面那个问题，而是对局势、欲望和代价还没有同时看清。',
-    misread: '最容易误判的是：只取自己想听的一面，把卦辞当成批准书。',
-    risk: '风险在于把模糊处强行解释成确定，把短期情绪误认为长期方向。',
-    dont: ['不要立刻把这次起卦当作行动命令。', '不要回避你已经看见却不愿承认的事实。'],
-    doNow: ['把事实、推测、期待分开写下。', '找出一件可以验证的小事，而不是追求一次性结论。'],
-    action: '三日内，做一次冷静复盘：只记录事实，不替事实加情绪。',
-    principle: '能被验证的，才值得推进；不能被验证的，先放在心旁。',
-    closing: '卦不是替你说命，而是把你放回事情之中。看清自己的用力、恐惧和贪快，便已经往外走了一步。',
+    questionType: input.language === 'en' ? questionTypeEn : questionTypeZh,
+    tendencyZh: '半成。不是没机会，但现在还不能只凭愿望往前压。',
+    tendencyEn: 'This is partial, not settled. There is room, but the situation needs verification before a stronger move.',
+    basisZh: `本卦${input.primaryName}给当前结构，动爻${lineName}给变化点，变卦${input.changedName}给后势。现在只能按这三处判断，不能加戏。`,
+    basisEn: `${input.primaryName} gives the present structure, ${lineNameEn} marks the active point, and ${input.changedName} shows the next shape. The reading should stay with those three signals.`,
+    currentZh: `问的是${questionTypeZh}，现在结构里还有不明处。不是简单支持，也不是直接否定。`,
+    currentEn: `For ${questionTypeEn}, the present structure still has something unconfirmed. It is neither a clean yes nor a clean no.`,
+    movingZh: hasNoMovingLines(input)
+      ? '无动爻，看整体。事情没有明显突发口子，先别急着找单点答案。'
+      : `动在${lineName}。变化已经有，但更像提醒分寸，不是直接给通行证。`,
+    movingEn: hasNoMovingLines(input)
+      ? 'With no moving line, the whole pattern matters more than a sudden turn. Do not look for a single dramatic signal.'
+      : `The moving point is ${lineNameEn}. There is movement, but it is more about proportion and timing than permission to force the matter.`,
+    trendZh: `${input.changedName}说明后面会换一种局面。能不能成，要看你有没有按风险走。`,
+    trendEn: `${input.changedName} suggests the matter shifts into a different shape. Whether it works depends on how the risk is handled now.`,
+    tensionZh: '你想要结论，但卦先要你验条件。',
+    tensionEn: 'You want a conclusion, but the pattern asks for the missing condition to be tested first.',
+    avoidZh: ['不要把起卦当行动许可。', '不要忽略已经露出的阻力。'],
+    avoidEn: ['Do not treat the reading as permission to act immediately.', 'Do not ignore the resistance that has already appeared.'],
+    doZh: ['把事实、推测、期待分开。', '找一个最能验证成败的条件。'],
+    doEn: ['Separate fact, assumption, and hope.', 'Identify the one condition that would test whether this can move.'],
+    signalZh: '三日内看是否有明确回复、时间、资源、关键人表态或阻力减少。',
+    signalEn: 'Within three days, watch for a clear reply, a timeline, a resource, a key person taking a position, or a reduction in resistance.',
+    pushZh: '只推进一个最小动作，用它验局势。',
+    pushEn: 'Make only the smallest useful move, and use it to test the situation.',
+    closingZh: '此事半成；先验条件，再动手。',
+    closingEn: 'This is not closed, but it is not ready for pressure. Test the condition first, then move.',
   }
 }
+
+const renderZh = (input: ParsedPrompt, theme: JudgmentTheme) => `（模拟判断：尚未接入真实模型服务）
+
+# 一、卦象总诊断
+
+${theme.tendencyZh}
+
+## 1. 本卦所示：当前局势的根基
+本卦为${input.primaryName}卦。${theme.currentZh}
+
+## 2. 动爻所示：真正发生变化的关键点
+${theme.movingZh}
+
+## 3. 变卦所示：趋势与可能结果
+变卦为${input.changedName}卦。${theme.trendZh}
+
+## 4. 此问的核心矛盾
+${theme.tensionZh}
+
+# 二、现实处境拆解
+
+## 1. 表面问题
+你问的是：${input.question}
+
+## 2. 深层问题
+${theme.basisZh}
+
+## 3. 你最容易误判的地方
+容易把一时的慢、卡、没回应，直接看成最后结果。
+
+## 4. 卦象提醒你的风险
+风险在于用力太早，或者在条件不清时把话说满。
+
+# 三、行动建议
+
+## 1. 现在不要做什么
+${theme.avoidZh.map((item) => `- ${item}`).join('\n')}
+
+## 2. 现在应该做什么
+${theme.doZh.map((item) => `- ${item}`).join('\n')}
+
+## 3. 三日内的小动作
+${theme.signalZh}
+
+## 4. 这件事的长期原则
+${theme.pushZh}
+
+# 四、卦给你的那句话
+
+${theme.closingZh}`
+
+const renderEn = (input: ParsedPrompt, theme: JudgmentTheme) => `(Mock reading: the live model service is not connected.)
+
+# I. Pattern Judgment
+
+${theme.tendencyEn}
+
+## 1. What the primary gua shows
+The primary gua is ${input.primaryName}. ${theme.currentEn}
+
+## 2. What the moving line changes
+${theme.movingEn}
+
+## 3. Where the changed gua points
+The changed gua is ${input.changedName}. ${theme.trendEn}
+
+## 4. The central tension
+${theme.tensionEn}
+
+# II. Reading the Situation
+
+## 1. The surface question
+You are asking: ${input.question}
+
+## 2. The deeper question
+${theme.basisEn}
+
+## 3. The likely misread
+The easy mistake is to read slowness, friction, or silence as the final answer before the situation has shown enough.
+
+## 4. The risk shown by the gua
+The risk is premature pressure: acting before the missing condition is visible.
+
+# III. What To Do
+
+## 1. Do not do this now
+${theme.avoidEn.map((item) => `- ${item}`).join('\n')}
+
+## 2. Do this now
+${theme.doEn.map((item) => `- ${item}`).join('\n')}
+
+## 3. A signal to watch within three days
+${theme.signalEn}
+
+## 4. If you want to move forward
+${theme.pushEn}
+
+# IV. The Sentence This Gua Leaves
+
+${theme.closingEn}`
 
 export const mockProvider: AIProvider = {
   async interpret(prompt) {
@@ -100,53 +300,7 @@ export const mockProvider: AIProvider = {
     const theme = themeFor(input)
 
     return {
-      markdown: `（模拟札记：尚未接入真实模型服务）
-
-# 一、卦象总诊断
-
-## 1. 本卦所示：当前局势的根基
-你问的是“${input.question}”。${theme.root}
-
-## 2. 动爻所示：真正发生变化的关键点
-动爻：${input.movingLines}。${theme.change}
-
-## 3. 变卦所示：趋势与可能结果
-由${input.primaryName}而之${input.changedName}。${theme.trend}
-
-## 4. 此问的核心矛盾
-${theme.conflict}
-
-# 二、现实处境拆解
-
-## 1. 表面问题
-表面上，你是在问这件事会怎样、能不能推进、该不该行动。
-
-## 2. 深层问题
-深处其实是在问：我能不能承受暂时没有答案，并且不让焦虑替我做决定。
-
-## 3. 你最容易误判的地方
-${theme.misread}
-
-## 4. 卦象提醒你的风险
-${theme.risk}
-
-# 三、行动建议
-
-## 1. 现在不要做什么
-${theme.dont.map((item) => `- ${item}`).join('\n')}
-
-## 2. 现在应该做什么
-${theme.doNow.map((item) => `- ${item}`).join('\n')}
-
-## 3. 三日内的小动作
-${theme.action}
-
-## 4. 这件事的长期原则
-${theme.principle}
-
-# 四、卦给你的那句话
-
-${theme.closing}`,
+      markdown: input.language === 'en' ? renderEn(input, theme) : renderZh(input, theme),
     }
   },
 }

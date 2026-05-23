@@ -1,4 +1,5 @@
 export type AIInterpretationInput = {
+  language: 'en' | 'zh'
   userQuestion: string
   primaryHexagram: {
     name: string
@@ -11,6 +12,7 @@ export type AIInterpretationInput = {
     judgment: string
   }
   movingLines: number[]
+  movingLineNames: string[]
   movingLineTexts: {
     line: number
     title: string

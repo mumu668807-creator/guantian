@@ -24,7 +24,7 @@ export function RitualOverlay({
       <header className="topbar">
         <div>
           <p className="eyebrow">MVP 0.3 / 观天</p>
-          <h1>大衍筮法</h1>
+          <h1>{COPY.appTitle}</h1>
         </div>
         <div className="mode-note">问夜预留</div>
       </header>
