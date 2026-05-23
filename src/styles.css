@@ -512,6 +512,15 @@ button:disabled {
   line-height: 1.55;
 }
 
+.entrance-question-notice {
+  white-space: pre-line;
+  margin: 14px 0 0;
+  color: rgba(239, 233, 208, 0.68);
+  font-size: 13px;
+  line-height: 1.6;
+  letter-spacing: 0.04em;
+}
+
 .entrance-question {
   width: 100%;
   margin-top: 24px;

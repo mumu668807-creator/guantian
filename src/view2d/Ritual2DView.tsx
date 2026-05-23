@@ -497,6 +497,7 @@ export function Ritual2DView() {
                   {copy.beginButton}
                 </button>
               </div>
+              {authNotice ? <p className="entrance-question-notice">{authNotice}</p> : null}
               </form>
             ) : null}
           </section>
