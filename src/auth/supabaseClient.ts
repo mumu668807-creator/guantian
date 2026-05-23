@@ -46,13 +46,19 @@ export async function signInWithGoogle() {
   if (error) throwPublicError(error)
 }
 
+const getCurrentPageRedirectUrl = () => {
+  const url = new URL(window.location.href)
+  url.hash = ''
+  return url.toString()
+}
+
 export async function sendMagicLink(email: string) {
   if (!supabase) throw new Error('Supabase is not configured')
 
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: window.location.origin,
+      emailRedirectTo: getCurrentPageRedirectUrl(),
     },
   })
 

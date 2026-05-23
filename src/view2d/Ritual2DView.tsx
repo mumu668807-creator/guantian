@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { localApiProvider } from '../ai/localApiProvider'
 import { mockProvider } from '../ai/mockProvider'
-import { claimDailyCast, sendMagicLink, signInWithGoogle, SupabasePublicError } from '../auth/supabaseClient'
+import { claimDailyCast, sendMagicLink, signOut, SupabasePublicError } from '../auth/supabaseClient'
 import { useGuantianAuth } from '../auth/useGuantianAuth'
 import { createNatureAudioController } from '../audio/natureAudio'
 import { COPY_BY_LANGUAGE, type Language } from '../constants/copy'
@@ -218,6 +218,8 @@ export function Ritual2DView() {
   const [authEmail, setAuthEmail] = useState('')
   const [isEmailEntryOpen, setIsEmailEntryOpen] = useState(false)
   const [authNotice, setAuthNotice] = useState<string | null>(null)
+  const [isAccountOpen, setIsAccountOpen] = useState(false)
+  const [isLocalAuthBypassed, setIsLocalAuthBypassed] = useState(false)
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false)
   const [onboardingPage, setOnboardingPage] = useState(0)
   const enterTimerRef = useRef<number | null>(null)
@@ -242,9 +244,13 @@ export function Ritual2DView() {
   const isEntrance = snapshot.step === 'idle' || snapshot.step === 'awaitingQuestion'
   const isReadingHexagram = isSeeingHexagram || seenMarkdown !== null
   const isObservingHexagram = isSeeingHexagram && seenMarkdown === null
-  const hasEnteredSpace = !auth.isAuthEnabled || Boolean(auth.session)
+  const hasEnteredSpace = !auth.isAuthEnabled || Boolean(auth.session) || isLocalAuthBypassed
   const toggleLanguage = () => setLanguage((current) => (current === 'en' ? 'zh' : 'en'))
-  const onboardingStorageKey = auth.user?.id ? `guantian:onboarding:${auth.user.id}` : null
+  const onboardingStorageKey = auth.user?.id
+    ? `guantian:onboarding:${auth.user.id}`
+    : isLocalAuthBypassed
+      ? 'guantian:onboarding:local-dev'
+      : null
   const closeOnboarding = useCallback(() => {
     if (onboardingStorageKey) window.localStorage.setItem(onboardingStorageKey, 'seen')
     setIsOnboardingOpen(false)
@@ -263,12 +269,12 @@ export function Ritual2DView() {
   }, [closeOnboarding, copy.onboardingPages.length, onboardingPage])
   const beginFromEntrance = async () => {
     if (!canBegin || isEnteringRitual) return
-    if (auth.isAuthEnabled && !auth.session) {
+    if (auth.isAuthEnabled && !auth.session && !isLocalAuthBypassed) {
       setAuthNotice(copy.authRequired)
       return
     }
 
-    if (auth.isAuthEnabled) {
+    if (auth.isAuthEnabled && !import.meta.env.DEV) {
       setIsClaimingCast(true)
       setAuthNotice(null)
       try {
@@ -294,16 +300,6 @@ export function Ritual2DView() {
     }, 700)
   }
 
-  const handleGoogleSignIn = async () => {
-    setAuthNotice(null)
-    try {
-      await signInWithGoogle()
-    } catch (error) {
-      console.warn('Google sign in failed.', error)
-      setAuthNotice(copy.authError)
-    }
-  }
-
   const formatAuthError = (error: unknown) => {
     if (error instanceof SupabasePublicError) {
       const detail = [error.message, error.status ? `status ${error.status}` : null, error.code ?? null]
@@ -325,6 +321,18 @@ export function Ritual2DView() {
       console.warn('Magic link failed.', error)
       setAuthNotice(formatAuthError(error))
     }
+  }
+
+  const handleSignOut = async () => {
+    await signOut()
+    resetInterpretation()
+    setShowChangeDetails(false)
+    setIsResultRevealed(false)
+    setIsAccountOpen(false)
+    setIsLocalAuthBypassed(false)
+    setIsEmailEntryOpen(true)
+    setAuthNotice(null)
+    ritual.reset()
   }
 
   useEffect(() => {
@@ -367,7 +375,7 @@ export function Ritual2DView() {
 
     const timer = window.setTimeout(() => {
       closeOnboarding()
-    }, 4200)
+    }, 5700)
 
     return () => window.clearTimeout(timer)
   }, [closeOnboarding, copy.onboardingPages.length, isOnboardingOpen, onboardingPage])
@@ -388,6 +396,29 @@ export function Ritual2DView() {
           <button type="button" className="language-switch-button" onClick={toggleLanguage}>
             {copy.languageToggle}
           </button>
+          {auth.isAuthEnabled && auth.session ? (
+            <div className="account-menu">
+              <button
+                type="button"
+                className="account-button"
+                aria-label={copy.account}
+                onClick={() => setIsAccountOpen((current) => !current)}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 12.1a3.8 3.8 0 1 0 0-7.6 3.8 3.8 0 0 0 0 7.6Z" />
+                  <path d="M5.4 20.2c.8-3.2 3.2-5 6.6-5s5.8 1.8 6.6 5" />
+                </svg>
+              </button>
+              {isAccountOpen ? (
+                <div className="account-popover">
+                  <span>{auth.user?.email ?? copy.authSignedIn}</span>
+                  <button type="button" onClick={() => void handleSignOut()}>
+                    {copy.authLeave}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           {hasEnteredSpace ? (
             <button type="button" className="onboarding-book-button" aria-label={copy.book} onClick={openOnboarding}>
               <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -412,12 +443,22 @@ export function Ritual2DView() {
             <p className="entrance-subtitle">{copy.appSubtitle}</p>
             {auth.isAuthEnabled && !auth.session ? (
               <div className="entrance-auth" aria-live="polite">
-                <button type="button" className="entrance-auth-google" onClick={() => void handleGoogleSignIn()}>
-                  {copy.authEnterWithGoogle}
-                </button>
                 <button type="button" className="entrance-auth-enter" onClick={() => setIsEmailEntryOpen((current) => !current)}>
                   {copy.authEnterWithEmail}
                 </button>
+                {import.meta.env.DEV ? (
+                  <button
+                    type="button"
+                    className="entrance-auth-local"
+                    onClick={() => {
+                      setIsLocalAuthBypassed(true)
+                      setIsEmailEntryOpen(false)
+                      setAuthNotice(null)
+                    }}
+                  >
+                    {copy.authLocalBypass}
+                  </button>
+                ) : null}
                 {isEmailEntryOpen ? (
                     <div className="entrance-auth-email">
                       <input
@@ -461,6 +502,16 @@ export function Ritual2DView() {
           </section>
           {isOnboardingOpen ? (
             <section className="onboarding-veil" aria-label={copy.book} onClick={advanceOnboarding}>
+              <button
+                type="button"
+                className="onboarding-language-button"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  toggleLanguage()
+                }}
+              >
+                {copy.languageToggle}
+              </button>
               <div className="onboarding-page">
                 <p>{copy.onboardingPages[onboardingPage]}</p>
               </div>
@@ -516,6 +567,29 @@ export function Ritual2DView() {
         <button type="button" className="language-switch-button" onClick={toggleLanguage}>
           {copy.languageToggle}
         </button>
+        {auth.isAuthEnabled && auth.session ? (
+          <div className="account-menu">
+            <button
+              type="button"
+              className="account-button"
+              aria-label={copy.account}
+              onClick={() => setIsAccountOpen((current) => !current)}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 12.1a3.8 3.8 0 1 0 0-7.6 3.8 3.8 0 0 0 0 7.6Z" />
+                <path d="M5.4 20.2c.8-3.2 3.2-5 6.6-5s5.8 1.8 6.6 5" />
+              </svg>
+            </button>
+            {isAccountOpen ? (
+              <div className="account-popover">
+                <span>{auth.user?.email ?? copy.authSignedIn}</span>
+                <button type="button" onClick={() => void handleSignOut()}>
+                  {copy.authLeave}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         {hasEnteredSpace ? (
           <button type="button" className="onboarding-book-button" aria-label={copy.book} onClick={openOnboarding}>
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -629,43 +703,6 @@ export function Ritual2DView() {
             <div className="manual-result-actions">
               <button
                 type="button"
-                onClick={async () => {
-                  if (!snapshot.result) return
-                  setIsSeeingHexagram(true)
-                  setSeenMarkdown(null)
-                  const selection = selectInterpretation({
-                    originalHexagramBinary: snapshot.result.primaryBinary,
-                    changedHexagramBinary: snapshot.result.changedBinary,
-                    movingLines: snapshot.result.changedLines,
-                  })
-                  setSeenSelection(selection)
-                  const input = buildAIInterpretationInput(snapshot.result.question, snapshot.result, language)
-                  const prompt = buildInterpretationPrompt(input)
-                  try {
-                    const startedAt = window.performance.now()
-                    const output = await (async () => {
-                      try {
-                        return await localApiProvider.interpret(prompt)
-                      } catch (error) {
-                        console.warn('Local LLM proxy failed; falling back to mockProvider.', error)
-                        return mockProvider.interpret(prompt)
-                      }
-                    })()
-                    const elapsed = window.performance.now() - startedAt
-                    const remainingWait = Math.max(0, 4800 - elapsed)
-                    if (remainingWait > 0) {
-                      await new Promise((resolve) => window.setTimeout(resolve, remainingWait))
-                    }
-                    setSeenMarkdown(output.markdown)
-                  } finally {
-                    setIsSeeingHexagram(false)
-                  }
-                }}
-              >
-                {copy.insightButton}
-              </button>
-              <button
-                type="button"
                 onClick={() => {
                   resetInterpretation()
                   setShowChangeDetails(false)
@@ -708,6 +745,44 @@ export function Ritual2DView() {
               </dd>
             </div>
           </dl>
+          <button
+            type="button"
+            className="manual-insight-button"
+            onClick={async () => {
+              if (!snapshot.result) return
+              setIsSeeingHexagram(true)
+              setSeenMarkdown(null)
+              const selection = selectInterpretation({
+                originalHexagramBinary: snapshot.result.primaryBinary,
+                changedHexagramBinary: snapshot.result.changedBinary,
+                movingLines: snapshot.result.changedLines,
+              })
+              setSeenSelection(selection)
+              const input = buildAIInterpretationInput(snapshot.result.question, snapshot.result, language)
+              const prompt = buildInterpretationPrompt(input)
+              try {
+                const startedAt = window.performance.now()
+                const output = await (async () => {
+                  try {
+                    return await localApiProvider.interpret(prompt)
+                  } catch (error) {
+                    console.warn('Local LLM proxy failed; falling back to mockProvider.', error)
+                    return mockProvider.interpret(prompt)
+                  }
+                })()
+                const elapsed = window.performance.now() - startedAt
+                const remainingWait = Math.max(0, 4800 - elapsed)
+                if (remainingWait > 0) {
+                  await new Promise((resolve) => window.setTimeout(resolve, remainingWait))
+                }
+                setSeenMarkdown(output.markdown)
+              } finally {
+                setIsSeeingHexagram(false)
+              }
+            }}
+          >
+            {copy.insightButton}
+          </button>
           </section>
         ) : null}
 
@@ -753,6 +828,16 @@ export function Ritual2DView() {
         ) : null}
         {isOnboardingOpen ? (
           <section className="onboarding-veil" aria-label={copy.book} onClick={advanceOnboarding}>
+            <button
+              type="button"
+              className="onboarding-language-button"
+              onClick={(event) => {
+                event.stopPropagation()
+                toggleLanguage()
+              }}
+            >
+              {copy.languageToggle}
+            </button>
             <div className="onboarding-page">
               <p>{copy.onboardingPages[onboardingPage]}</p>
             </div>
