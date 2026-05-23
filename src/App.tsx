@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react'
+import { Analytics } from '@vercel/analytics/react'
 import './styles.css'
 import { Ritual2DView } from './view2d/Ritual2DView'
 
@@ -34,12 +35,22 @@ const Legacy3DApp = lazy(async () => {
 })
 
 function App() {
-  if (mode === '2d') return <Ritual2DView />
+  if (mode === '2d') {
+    return (
+      <>
+        <Ritual2DView />
+        <Analytics />
+      </>
+    )
+  }
 
   return (
-    <Suspense fallback={<Ritual2DView />}>
-      <Legacy3DApp />
-    </Suspense>
+    <>
+      <Suspense fallback={<Ritual2DView />}>
+        <Legacy3DApp />
+      </Suspense>
+      <Analytics />
+    </>
   )
 }
 
