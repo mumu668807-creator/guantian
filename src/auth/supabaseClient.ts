@@ -17,6 +17,22 @@ export const supabase = isSupabaseConfigured
 
 export type GuantianSession = Session
 
+export class SupabasePublicError extends Error {
+  readonly status?: number
+  readonly code?: string
+
+  constructor(message: string, status?: number, code?: string) {
+    super(message)
+    this.name = 'SupabasePublicError'
+    this.status = status
+    this.code = code
+  }
+}
+
+const throwPublicError = (error: { message?: string; status?: number; code?: string }) => {
+  throw new SupabasePublicError(error.message || 'Unknown Supabase error', error.status, error.code)
+}
+
 export async function signInWithGoogle() {
   if (!supabase) throw new Error('Supabase is not configured')
 
@@ -27,7 +43,7 @@ export async function signInWithGoogle() {
     },
   })
 
-  if (error) throw error
+  if (error) throwPublicError(error)
 }
 
 export async function sendMagicLink(email: string) {
@@ -40,7 +56,7 @@ export async function sendMagicLink(email: string) {
     },
   })
 
-  if (error) throw error
+  if (error) throwPublicError(error)
 }
 
 export async function signOut() {
@@ -52,7 +68,7 @@ export async function claimDailyCast(): Promise<boolean> {
   if (!supabase) return true
 
   const { data, error } = await supabase.rpc('claim_daily_cast')
-  if (error) throw error
+  if (error) throwPublicError(error)
 
   return data === true
 }

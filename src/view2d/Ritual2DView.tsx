@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { localApiProvider } from '../ai/localApiProvider'
 import { mockProvider } from '../ai/mockProvider'
-import { claimDailyCast, sendMagicLink, signInWithGoogle } from '../auth/supabaseClient'
+import { claimDailyCast, sendMagicLink, signInWithGoogle, SupabasePublicError } from '../auth/supabaseClient'
 import { useGuantianAuth } from '../auth/useGuantianAuth'
 import { createNatureAudioController } from '../audio/natureAudio'
 import { COPY_BY_LANGUAGE, type Language } from '../constants/copy'
@@ -304,6 +304,17 @@ export function Ritual2DView() {
     }
   }
 
+  const formatAuthError = (error: unknown) => {
+    if (error instanceof SupabasePublicError) {
+      const detail = [error.message, error.status ? `status ${error.status}` : null, error.code ?? null]
+        .filter(Boolean)
+        .join(' · ')
+      return `${copy.authError}\n${copy.authErrorPrefix}: ${detail}`
+    }
+    if (error instanceof Error) return `${copy.authError}\n${copy.authErrorPrefix}: ${error.message}`
+    return copy.authError
+  }
+
   const handleMagicLink = async () => {
     if (!authEmail.trim()) return
     setAuthNotice(null)
@@ -312,7 +323,7 @@ export function Ritual2DView() {
       setAuthNotice(copy.authCheckMail)
     } catch (error) {
       console.warn('Magic link failed.', error)
-      setAuthNotice(copy.authError)
+      setAuthNotice(formatAuthError(error))
     }
   }
 
