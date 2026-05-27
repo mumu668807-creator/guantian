@@ -159,9 +159,9 @@ export function positionFor(group: ManualYarrowGroup, order: number, id: number)
 
   if (group === 'takenOne') {
     return {
-      x: 612 + softScatter,
-      y: 132 + ((id * 7) % 5),
-      rotation: 24 + sway,
+      x: 666 + softScatter,
+      y: 126 + ((id * 7) % 5),
+      rotation: 30 + sway,
     }
   }
 
