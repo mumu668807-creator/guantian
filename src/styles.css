@@ -504,6 +504,15 @@ button:disabled {
   color: rgba(239, 233, 208, 0.72);
 }
 
+.entrance-auth-session strong {
+  max-width: 260px;
+  overflow: hidden;
+  color: rgba(247, 241, 220, 0.82);
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .entrance-auth-notice {
   white-space: pre-line;
   margin: 0;

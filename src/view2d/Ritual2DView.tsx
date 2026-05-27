@@ -19,6 +19,18 @@ import type { ManualHexagramResult, ManualLineRecord } from '../domain/manualDay
 
 type RitualCopy = (typeof COPY_BY_LANGUAGE)[Language]
 
+const languageStorageKey = 'guantian:language'
+
+const readInitialLanguage = (): Language => {
+  const queryLanguage = new URLSearchParams(window.location.search).get('lang')
+  if (queryLanguage === 'zh' || queryLanguage === 'en') return queryLanguage
+
+  const storedLanguage = window.localStorage.getItem(languageStorageKey)
+  if (storedLanguage === 'zh' || storedLanguage === 'en') return storedLanguage
+
+  return 'en'
+}
+
 function StageShell({ children, smallScreenText }: { children: ReactNode; smallScreenText: string }) {
   const stageScale = useStageScale()
 
@@ -205,7 +217,7 @@ export function Ritual2DView() {
   const ritual = useManualRitualMachine()
   const auth = useGuantianAuth()
   const { snapshot } = ritual
-  const [language, setLanguage] = useState<Language>('en')
+  const [language, setLanguage] = useState<Language>(() => readInitialLanguage())
   const copy = COPY_BY_LANGUAGE[language]
   const statusCard = makeStatusCard(snapshot, copy)
   const [isSeeingHexagram, setIsSeeingHexagram] = useState(false)
@@ -216,10 +228,10 @@ export function Ritual2DView() {
   const [isClaimingCast, setIsClaimingCast] = useState(false)
   const [isResultRevealed, setIsResultRevealed] = useState(false)
   const [authEmail, setAuthEmail] = useState('')
-  const [isEmailEntryOpen, setIsEmailEntryOpen] = useState(false)
   const [authNotice, setAuthNotice] = useState<string | null>(null)
   const [isAccountOpen, setIsAccountOpen] = useState(false)
   const [isLocalAuthBypassed, setIsLocalAuthBypassed] = useState(false)
+  const [hasEnteredRitualSpace, setHasEnteredRitualSpace] = useState(!auth.isAuthEnabled)
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false)
   const [onboardingPage, setOnboardingPage] = useState(0)
   const enterTimerRef = useRef<number | null>(null)
@@ -244,8 +256,13 @@ export function Ritual2DView() {
   const isEntrance = snapshot.step === 'idle' || snapshot.step === 'awaitingQuestion'
   const isReadingHexagram = isSeeingHexagram || seenMarkdown !== null
   const isObservingHexagram = isSeeingHexagram && seenMarkdown === null
-  const hasEnteredSpace = !auth.isAuthEnabled || Boolean(auth.session) || isLocalAuthBypassed
-  const toggleLanguage = () => setLanguage((current) => (current === 'en' ? 'zh' : 'en'))
+  const hasEnteredSpace = !auth.isAuthEnabled || hasEnteredRitualSpace || isLocalAuthBypassed
+  const toggleLanguage = () =>
+    setLanguage((current) => {
+      const nextLanguage = current === 'en' ? 'zh' : 'en'
+      window.localStorage.setItem(languageStorageKey, nextLanguage)
+      return nextLanguage
+    })
   const onboardingStorageKey = auth.user?.id
     ? `guantian:onboarding:${auth.user.id}`
     : isLocalAuthBypassed
@@ -267,6 +284,14 @@ export function Ritual2DView() {
     }
     setOnboardingPage((current) => current + 1)
   }, [closeOnboarding, copy.onboardingPages.length, onboardingPage])
+  const enterRitualSpace = () => {
+    if (auth.isAuthEnabled && !auth.session && !isLocalAuthBypassed) {
+      setAuthNotice(copy.authRequired)
+      return
+    }
+    setAuthNotice(null)
+    setHasEnteredRitualSpace(true)
+  }
   const beginFromEntrance = async () => {
     if (!canBegin || isEnteringRitual) return
     if (auth.isAuthEnabled && !auth.session && !isLocalAuthBypassed) {
@@ -315,7 +340,8 @@ export function Ritual2DView() {
     if (!authEmail.trim()) return
     setAuthNotice(null)
     try {
-      await sendMagicLink(authEmail.trim())
+      window.localStorage.setItem(languageStorageKey, language)
+      await sendMagicLink(authEmail.trim(), language)
       setAuthNotice(copy.authCheckMail)
     } catch (error) {
       console.warn('Magic link failed.', error)
@@ -330,10 +356,14 @@ export function Ritual2DView() {
     setIsResultRevealed(false)
     setIsAccountOpen(false)
     setIsLocalAuthBypassed(false)
-    setIsEmailEntryOpen(true)
+    setHasEnteredRitualSpace(false)
     setAuthNotice(null)
     ritual.reset()
   }
+
+  useEffect(() => {
+    window.localStorage.setItem(languageStorageKey, language)
+  }, [language])
 
   useEffect(() => {
     const audio = createNatureAudioController('guantian')
@@ -359,6 +389,7 @@ export function Ritual2DView() {
   }, [snapshot.result])
 
   useEffect(() => {
+    if (!hasEnteredSpace) return undefined
     if (!onboardingStorageKey) return undefined
     if (window.localStorage.getItem(onboardingStorageKey) === 'seen') return undefined
 
@@ -368,7 +399,7 @@ export function Ritual2DView() {
     }, 900)
 
     return () => window.clearTimeout(timer)
-  }, [onboardingStorageKey])
+  }, [hasEnteredSpace, onboardingStorageKey])
 
   useEffect(() => {
     if (!isOnboardingOpen || onboardingPage !== copy.onboardingPages.length - 1) return undefined
@@ -441,38 +472,44 @@ export function Ritual2DView() {
             <p className="entrance-kicker">{copy.appKicker}</p>
             <h1>{copy.appTitle}</h1>
             <p className="entrance-subtitle">{copy.appSubtitle}</p>
-            {auth.isAuthEnabled && !auth.session ? (
+            {auth.isAuthEnabled && !auth.session && !isLocalAuthBypassed ? (
               <div className="entrance-auth" aria-live="polite">
-                <button type="button" className="entrance-auth-enter" onClick={() => setIsEmailEntryOpen((current) => !current)}>
-                  {copy.authEnterWithEmail}
-                </button>
+                <div className="entrance-auth-email">
+                  <input
+                    value={authEmail}
+                    onChange={(event) => setAuthEmail(event.target.value)}
+                    placeholder={copy.authEmailPlaceholder}
+                    inputMode="email"
+                    autoComplete="email"
+                  />
+                  <button type="button" onClick={() => void handleMagicLink()} disabled={!authEmail.trim()}>
+                    {copy.authSendLink}
+                  </button>
+                </div>
                 {import.meta.env.DEV ? (
                   <button
                     type="button"
                     className="entrance-auth-local"
                     onClick={() => {
                       setIsLocalAuthBypassed(true)
-                      setIsEmailEntryOpen(false)
                       setAuthNotice(null)
                     }}
                   >
                     {copy.authLocalBypass}
                   </button>
                 ) : null}
-                {isEmailEntryOpen ? (
-                    <div className="entrance-auth-email">
-                      <input
-                        value={authEmail}
-                        onChange={(event) => setAuthEmail(event.target.value)}
-                        placeholder={copy.authEmailPlaceholder}
-                        inputMode="email"
-                        autoComplete="email"
-                      />
-                      <button type="button" onClick={() => void handleMagicLink()} disabled={!authEmail.trim()}>
-                        {copy.authSendLink}
-                      </button>
-                    </div>
-                ) : null}
+                {authNotice ? <p className="entrance-auth-notice">{authNotice}</p> : null}
+              </div>
+            ) : null}
+            {auth.isAuthEnabled && auth.session && !hasEnteredSpace ? (
+              <div className="entrance-auth entrance-auth-return" aria-live="polite">
+                <p className="entrance-auth-session">
+                  <span>{copy.authSignedIn}</span>
+                  <strong>{auth.user?.email}</strong>
+                </p>
+                <button type="button" className="entrance-auth-enter" onClick={enterRitualSpace}>
+                  {copy.authEnterWithEmail}
+                </button>
                 {authNotice ? <p className="entrance-auth-notice">{authNotice}</p> : null}
               </div>
             ) : null}
