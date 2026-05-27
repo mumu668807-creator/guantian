@@ -60,7 +60,7 @@ const stepLabels: Record<ManualStep, string> = {
 const automaticDelays: Record<ManualStep, number> = {
   idle: 0,
   awaitingQuestion: 0,
-  reserveOne: 900,
+  reserveOne: 1700,
   chooseSplit: 0,
   split: 720,
   takeOne: 760,
@@ -73,6 +73,7 @@ const automaticDelays: Record<ManualStep, number> = {
 
 const countBatchDelay = 220
 const unusedOneId = 50
+const reserveOneLiftDelay = 180
 
 const regroup = (
   stalks: ManualYarrowStalk[],
@@ -144,13 +145,17 @@ export function useManualRitualMachine() {
     const runId = runIdRef.current
     setLineIndex(1)
     setChangeIndex(1)
-    setStalks((current) => prepareFortyNine(current))
+    setStalks(createManualStalks())
     setLastChange(null)
     setLineChanges([])
     setLines([])
     setResult(null)
     setSplitHistory([])
     setStep('reserveOne')
+
+    schedule(() => {
+      setStalks((current) => prepareFortyNine(current))
+    }, reserveOneLiftDelay, runId)
 
     schedule(() => {
       setStep('chooseSplit')

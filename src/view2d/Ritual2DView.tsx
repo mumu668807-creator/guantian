@@ -665,6 +665,7 @@ export function Ritual2DView() {
           <YarrowSvg
             stalks={snapshot.stalks}
             canChooseSplit={snapshot.canChooseSplit}
+            isReservingOne={snapshot.step === 'reserveOne'}
             onChooseSplit={ritual.chooseSplit}
           />
         </div>

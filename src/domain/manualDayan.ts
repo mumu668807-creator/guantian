@@ -115,6 +115,8 @@ export function makeStalk(
 
 export function positionFor(group: ManualYarrowGroup, order: number, id: number) {
   const sway = ((id % 7) - 3) * 0.75
+  const smallScatter = ((id * 17) % 9) - 4
+  const softScatter = smallScatter * 0.55
 
   if (group === 'available') {
     const fan = order - 24
@@ -134,57 +136,71 @@ export function positionFor(group: ManualYarrowGroup, order: number, id: number)
   }
 
   if (group === 'left') {
+    const row = Math.floor(order / 9)
+    const column = order % 9
+    const fan = column - 4
     return {
-      x: 132 + (order % 12) * 9.2,
-      y: 190 + Math.floor(order / 12) * 12,
-      rotation: -10 + sway,
+      x: 126 + column * 11.2 + row * 7 + softScatter,
+      y: 186 + row * 15 + Math.abs(fan) * 1.4 + ((id * 5) % 4),
+      rotation: -16 + fan * 1.1 + sway,
     }
   }
 
   if (group === 'right') {
+    const row = Math.floor(order / 9)
+    const column = order % 9
+    const fan = column - 4
     return {
-      x: 435 + (order % 12) * 9.2,
-      y: 190 + Math.floor(order / 12) * 12,
-      rotation: 10 + sway,
+      x: 496 + column * 11.2 - row * 7 + softScatter,
+      y: 186 + row * 15 + Math.abs(fan) * 1.4 + ((id * 3) % 4),
+      rotation: 16 + fan * 1.1 + sway,
     }
   }
 
   if (group === 'takenOne') {
     return {
-      x: 603,
-      y: 128,
-      rotation: 18 + sway,
+      x: 612 + softScatter,
+      y: 132 + ((id * 7) % 5),
+      rotation: 24 + sway,
     }
   }
 
   if (group === 'countedLeft') {
+    const bundle = Math.floor(order / 4)
+    const inBundle = order % 4
     return {
-      x: 68 + (order % 4) * 10,
-      y: 332 + Math.floor(order / 4) * 8,
-      rotation: -14 + sway,
+      x: 78 + inBundle * 8.2 + (bundle % 5) * 47 + Math.floor(bundle / 5) * 9 + softScatter,
+      y: 326 + Math.floor(bundle / 5) * 24 + (bundle % 2) * 4 + inBundle * 1.2,
+      rotation: -18 + inBundle * 2.6 + sway,
     }
   }
 
   if (group === 'countedRight') {
+    const bundle = Math.floor(order / 4)
+    const inBundle = order % 4
     return {
-      x: 640 + (order % 4) * 10,
-      y: 332 + Math.floor(order / 4) * 8,
-      rotation: 14 + sway,
+      x: 468 + inBundle * 8.2 + (bundle % 5) * 47 - Math.floor(bundle / 5) * 9 + softScatter,
+      y: 326 + Math.floor(bundle / 5) * 24 + (bundle % 2) * 4 + inBundle * 1.2,
+      rotation: 18 - inBundle * 2.6 + sway,
     }
   }
 
   if (group === 'remainder') {
+    const row = Math.floor(order / 8)
+    const column = order % 8
     return {
-      x: 310 + (order % 10) * 15,
-      y: 355 + Math.floor(order / 10) * 10,
-      rotation: sway,
+      x: 322 + column * 14.2 + row * 8 + softScatter,
+      y: 354 + row * 11 + Math.abs(column - 3.5) * 0.9,
+      rotation: -5 + column * 1.4 + sway,
     }
   }
 
+  const row = Math.floor(order / 11)
+  const column = order % 11
   return {
-    x: 338 + (order % 10) * 12,
-    y: 390 + Math.floor(order / 10) * 8,
-    rotation: sway,
+    x: 296 + column * 12.6 + row * 5 + softScatter,
+    y: 392 + row * 7 + ((id * 5) % 3),
+    rotation: -2 + sway,
   }
 }
 

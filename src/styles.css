@@ -1210,6 +1210,12 @@ dd {
     opacity 240ms ease;
 }
 
+.yarrow-svg.is-reserving-one .yarrow-stalk {
+  transition:
+    transform 1180ms cubic-bezier(0.2, 0.72, 0.14, 1),
+    opacity 360ms ease;
+}
+
 .yarrow-stalk line {
   transition:
     stroke 240ms ease,
@@ -1217,11 +1223,33 @@ dd {
 }
 
 .yarrow-spent {
-  opacity: 0.35;
+  opacity: 0.24;
+  filter: drop-shadow(0 2px 1px rgba(10, 7, 4, 0.32));
+}
+
+.yarrow-countedLeft,
+.yarrow-countedRight {
+  opacity: 0.78;
+}
+
+.yarrow-remainder {
+  filter:
+    drop-shadow(0 4px 3px rgba(10, 7, 4, 0.38))
+    drop-shadow(0 1px 1px rgba(246, 226, 169, 0.1));
 }
 
 .yarrow-unusedOne {
   filter: drop-shadow(0 4px 3px rgba(44, 32, 20, 0.2));
+}
+
+.yarrow-svg.is-reserving-one .yarrow-unusedOne {
+  filter:
+    drop-shadow(0 10px 8px rgba(44, 32, 20, 0.16))
+    drop-shadow(0 2px 1px rgba(250, 235, 188, 0.18));
+}
+
+.yarrow-svg.is-reserving-one .yarrow-unusedOne line {
+  stroke-width: 5.2;
 }
 
 .yarrow-svg.can-split {

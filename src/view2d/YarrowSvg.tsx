@@ -4,6 +4,7 @@ import { splitIndexFromStalkPositions } from '../domain/manualDayan'
 type YarrowSvgProps = {
   stalks: ManualYarrowStalk[]
   canChooseSplit: boolean
+  isReservingOne: boolean
   onChooseSplit: (splitIndex: number) => void
 }
 
@@ -26,7 +27,7 @@ function clientPointToSvgX(svg: SVGSVGElement, event: React.MouseEvent<SVGSVGEle
   return point.matrixTransform(svg.getScreenCTM()?.inverse()).x
 }
 
-export function YarrowSvg({ stalks, canChooseSplit, onChooseSplit }: YarrowSvgProps) {
+export function YarrowSvg({ stalks, canChooseSplit, isReservingOne, onChooseSplit }: YarrowSvgProps) {
   const available = stalks
     .filter((stalk) => stalk.group === 'available')
 
@@ -40,7 +41,13 @@ export function YarrowSvg({ stalks, canChooseSplit, onChooseSplit }: YarrowSvgPr
 
   return (
     <svg
-      className={canChooseSplit ? 'yarrow-svg can-split' : 'yarrow-svg'}
+      className={[
+        'yarrow-svg',
+        canChooseSplit ? 'can-split' : '',
+        isReservingOne ? 'is-reserving-one' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       viewBox="0 0 760 430"
       role="img"
       aria-label="可交互蓍草"
