@@ -26,6 +26,9 @@
 - Vercel Analytics 已接入。
 - 中英文 copy 与语言切换已存在。
 - 自然音频控制器接口已经接入页面，但音频资产与开关体验仍不完整。
+- 本地历史记录已接入：完成起卦并生成解读后，会把记录保存到 localStorage，不接数据库、不接 Supabase。
+- 一键分享卦帖已接入：解读完成后可用 `html-to-image` 从隐藏 share layout 生成高清 PNG，不截整页。
+- 背景图已优化为 WebP 优先：入口图与分草桌面图保留原 PNG，同时生成桌面/1280 两档 WebP；入口页加载后会提前预加载分草背景。
 
 ## 关键文件
 
@@ -43,7 +46,10 @@
 - `server/index.ts`、`server/env.ts`、`server/llmClient.ts`：本地 LLM 代理。
 - `src/auth/supabaseClient.ts`、`src/auth/useGuantianAuth.ts`：Supabase Auth 与一天一卦。
 - `src/audio/natureAudio.ts`：自然音频控制器。
+- `src/history/localHistory.ts`：本地历史记录读写、记录结构与结果摘要生成。
 - `src/styles.css`：主要视觉与交互样式。
+- `src/view2d/Ritual2DView.tsx`：包含隐藏卦帖布局、分享 PNG 生成与预览保存入口。
+- `scripts/optimize-images.mjs`：用 sharp 从原 PNG 生成 WebP 背景资源。
 - `README.md`：功能、运行方式、架构说明。
 - `PROJECT_JOURNAL.md`：项目精神与演化原因。
 
@@ -64,6 +70,7 @@
 - 蓍草点击分草可用，但触摸、拖拽、手感还不够细。
 - 左右堆、余数区、已用区还可以更像真实木案上的摆放。
 - 自然音频只有基础控制器，缺少完整素材、静音开关和细致音量策略。
+- 历史记录目前只是本地 localStorage 版本，没有跨设备同步、删除、导出或数据库持久化。
 - 旧 3D 代码仍在仓库和构建产物里，增加包体；但暂时不要删除，等 2D 主线稳定后再决定是否封存。
 - 本地 LLM 代理需要单独运行；生产环境需要配置 `VITE_API_BASE_URL`。
 - Supabase schema 文件在 README 中被提到，但当前根目录未看到 `supabase/schema.sql`，后续处理数据库前需要确认。
@@ -76,6 +83,7 @@
 - 不要把 AI prompt 写进 React 组件；继续放在 `src/interpretation/interpretationPrompt.ts`。
 - 不要让前端保存或读取真实 LLM key。
 - 不要把 `claim_daily_cast()` 改成付费、次数促销或增长机制。
+- 不要把本地历史记录直接接到 Supabase；后续若要同步，需要另开一个明确的小任务。
 - 不要删除旧 3D 文件；目前它们是可回退资产。
 - 不要把开发 debug 信息显示给正式用户。
 - 不要一次性重做视觉系统；先做小而确定的体验改进。

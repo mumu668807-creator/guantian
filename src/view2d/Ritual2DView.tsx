@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { toPng } from 'html-to-image'
 import { localApiProvider } from '../ai/localApiProvider'
 import { mockProvider } from '../ai/mockProvider'
 import { claimDailyCast, sendMagicLink, signOut, SupabasePublicError } from '../auth/supabaseClient'
@@ -10,6 +11,14 @@ import { getHexagramByBinary, getYaoText } from '../domain/hexagramLookup'
 import { buildAIInterpretationInput } from '../interpretation/interpretationInput'
 import { buildInterpretationPrompt } from '../interpretation/interpretationPrompt'
 import { renderInterpretationMarkdown } from '../interpretation/interpretationRenderer'
+import tabletopBackgroundLightWebp from '../assets/tabletop-ritual-space-1280.webp'
+import tabletopBackgroundWebp from '../assets/tabletop-ritual-space.webp'
+import {
+  makeLocalHistoryRecord,
+  readLocalHistory,
+  saveLocalHistoryRecord,
+  type LocalHistoryRecord,
+} from '../history/localHistory'
 import { useStageScale } from '../hooks/useStageScale'
 import { useManualRitualMachine } from '../state/useManualRitualMachine'
 import { InkLandscape } from './InkLandscape'
@@ -58,6 +67,313 @@ function HexagramMark({ binary, copy }: { binary: string; copy: RitualCopy }) {
         <YaoMark key={`${bit}-${index}`} isYang={bit === '1'} copy={copy} />
       ))}
     </i>
+  )
+}
+
+function ShareHexagramMark({ binary }: { binary: string }) {
+  return (
+    <div className="share-hexagram-mark" aria-hidden="true">
+      {[...binary].reverse().map((bit, index) => (
+        <i key={`${bit}-${index}`} className={bit === '1' ? 'is-yang' : 'is-yin'}>
+          <span />
+          {bit === '0' ? <span /> : null}
+        </i>
+      ))}
+    </div>
+  )
+}
+
+function stripMarkdownLine(line: string) {
+  return line
+    .replace(/^#{1,6}\s*/, '')
+    .replace(/^[-*]\s*/, '')
+    .replace(/\*\*/g, '')
+    .replace(/\*/g, '')
+    .trim()
+}
+
+function getShareCoreText(markdown: string, language: Language) {
+  const lines = markdown
+    .split('\n')
+    .map(stripMarkdownLine)
+    .filter(Boolean)
+  const coreLine = lines.find((line) => {
+    if (line.length < 18) return false
+    if (/^[一二三四五六七八九十]+[、.．]/.test(line)) return false
+    if (/^\d+[.．]/.test(line)) return false
+    return true
+  })
+
+  if (!coreLine) return language === 'zh' ? '此刻先把问题放稳，再看变化往哪里去。' : 'Hold the question steady, then watch where change turns.'
+  return coreLine.length > 92 ? `${coreLine.slice(0, 92)}…` : coreLine
+}
+
+function SharePoster({
+  result,
+  markdown,
+  copy,
+  language,
+}: {
+  result: ManualHexagramResult
+  markdown: string
+  copy: RitualCopy
+  language: Language
+}) {
+  const originalName = getHexagramName(result.primaryBinary, language)
+  const changedName = getHexagramName(result.changedBinary, language)
+  const movingLines = formatMovingLines(result, language, copy)
+  const coreText = getShareCoreText(markdown, language)
+
+  return (
+    <div className="share-poster">
+      <div className="share-poster-mist" />
+      <div className="share-poster-inner">
+        <header>
+          <p>{copy.appKicker}</p>
+          <h2>{copy.sharePosterTitle}</h2>
+        </header>
+        <section className="share-question">
+          <span>{copy.resultQuestion}</span>
+          <p>{result.question}</p>
+        </section>
+        <section className="share-gua-row">
+          <article>
+            <span>{copy.primaryGua}</span>
+            <ShareHexagramMark binary={result.primaryBinary} />
+            <strong>{originalName}</strong>
+          </article>
+          <article>
+            <span>{copy.movingLines}</span>
+            <em>{movingLines}</em>
+          </article>
+          <article>
+            <span>{copy.changedGua}</span>
+            <ShareHexagramMark binary={result.changedBinary} />
+            <strong>{changedName}</strong>
+          </article>
+        </section>
+        <blockquote>{coreText}</blockquote>
+        <footer>
+          <span>www.guantian.xyz</span>
+        </footer>
+      </div>
+    </div>
+  )
+}
+
+function formatHistoryDate(createdAt: string, language: Language) {
+  try {
+    return new Intl.DateTimeFormat(language === 'zh' ? 'zh-CN' : 'en', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(createdAt))
+  } catch {
+    return createdAt
+  }
+}
+
+function formatHistoryLines(record: LocalHistoryRecord, copy: RitualCopy, language: Language) {
+  return record.lines
+    .map((line) => {
+      const prefix = language === 'zh' ? `第${line.index}爻` : `${copy.linePrefix} ${line.index}`
+      return `${prefix} ${copy.lineValues[line.value as keyof typeof copy.lineValues]}${
+        line.isChanging ? ` ${copy.changingLine}` : ''
+      }`
+    })
+    .join(' / ')
+}
+
+function HistoryPanel({
+  records,
+  activeRecordId,
+  copy,
+  language,
+  onSelect,
+  onClose,
+}: {
+  records: LocalHistoryRecord[]
+  activeRecordId: string | null
+  copy: RitualCopy
+  language: Language
+  onSelect: (record: LocalHistoryRecord) => void
+  onClose: () => void
+}) {
+  const activeRecord = records.find((record) => record.id === activeRecordId) ?? records[0] ?? null
+
+  return (
+    <section className="history-panel" aria-label={copy.historyTitle}>
+      <div className="history-panel-heading">
+        <div>
+          <p>{copy.historyKicker}</p>
+          <h2>{copy.historyTitle}</h2>
+        </div>
+        <button type="button" aria-label={copy.historyClose} onClick={onClose}>
+          ×
+        </button>
+      </div>
+      {!records.length ? (
+        <p className="history-empty">{copy.historyEmpty}</p>
+      ) : (
+        <>
+          <div className="history-list">
+            {records.map((record) => (
+              <button
+                type="button"
+                key={record.id}
+                className={record.id === activeRecord?.id ? 'is-active' : undefined}
+                onClick={() => onSelect(record)}
+              >
+                <span>{formatHistoryDate(record.createdAt, language)}</span>
+                <strong>{record.question}</strong>
+                <small>
+                  {record.originalHexagram.name} → {record.changedHexagram.name}
+                </small>
+              </button>
+            ))}
+          </div>
+          {activeRecord ? (
+            <article className="history-detail">
+              <p>{copy.resultQuestion}: {activeRecord.question}</p>
+              <dl>
+                <div>
+                  <dt>{copy.primaryGua}</dt>
+                  <dd>{activeRecord.originalHexagram.name}</dd>
+                </div>
+                <div>
+                  <dt>{copy.changedGua}</dt>
+                  <dd>{activeRecord.changedHexagram.name}</dd>
+                </div>
+                <div>
+                  <dt>{copy.movingLines}</dt>
+                  <dd>{activeRecord.movingLines.length ? activeRecord.movingLines.join('、') : copy.noMovingLine}</dd>
+                </div>
+              </dl>
+              <small>{formatHistoryLines(activeRecord, copy, language)}</small>
+              <div className="history-interpretation">
+                {renderInterpretationMarkdown(activeRecord.interpretationText)}
+              </div>
+            </article>
+          ) : null}
+        </>
+      )}
+    </section>
+  )
+}
+
+function AboutPanel({ copy, onClose }: { copy: RitualCopy; onClose: () => void }) {
+  return (
+    <section className="about-veil" aria-label={copy.aboutTitle} onClick={onClose}>
+      <article className="about-panel" onClick={(event) => event.stopPropagation()}>
+        <div className="about-panel-heading">
+          <div>
+            <p>{copy.appKicker}</p>
+            <h2>{copy.aboutTitle}</h2>
+          </div>
+          <button type="button" aria-label={copy.aboutClose} onClick={onClose}>
+            ×
+          </button>
+        </div>
+        <p>Guantian is made by 周锦年 / zjn.</p>
+        <p>
+          I build slow digital spaces, AI rituals, and small tools that try to make the internet feel human again.
+        </p>
+        <div className="about-contact">
+          <h3>Contact:</h3>
+          <ul>
+            <li>X: 周锦年zjn</li>
+            <li>Reddit: 周锦年zjn</li>
+            <li>Email: zhoujinnian2000@qq.com</li>
+            <li>Xiaohongshu: 周锦年zjn</li>
+          </ul>
+        </div>
+      </article>
+    </section>
+  )
+}
+
+function TopToolBar({
+  copy,
+  languageToggle,
+  hasEnteredSpace,
+  isAccountVisible,
+  isAccountOpen,
+  accountEmail,
+  onToggleLanguage,
+  onToggleAccount,
+  onSignOut,
+  onOpenAbout,
+  onOpenHistory,
+  onOpenOnboarding,
+}: {
+  copy: RitualCopy
+  languageToggle: string
+  hasEnteredSpace: boolean
+  isAccountVisible: boolean
+  isAccountOpen: boolean
+  accountEmail?: string
+  onToggleLanguage: () => void
+  onToggleAccount: () => void
+  onSignOut: () => void
+  onOpenAbout: () => void
+  onOpenHistory: () => void
+  onOpenOnboarding: () => void
+}) {
+  return (
+    <nav className="top-tool-bar" aria-label="quiet tools">
+      {isAccountVisible ? (
+        <div className="account-menu">
+          <button
+            type="button"
+            className="account-button"
+            aria-label={copy.account}
+            onClick={onToggleAccount}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 12a3.6 3.6 0 1 0 0-7.2A3.6 3.6 0 0 0 12 12Z" />
+              <path d="M5.6 19.4c.8-3.1 3.1-4.8 6.4-4.8s5.6 1.7 6.4 4.8" />
+            </svg>
+          </button>
+          {isAccountOpen ? (
+            <div className="account-popover">
+              <span>{accountEmail ?? copy.authSignedIn}</span>
+              <button type="button" onClick={onSignOut}>
+                {copy.authLeave}
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {hasEnteredSpace ? (
+        <>
+          <button type="button" className="history-open-button" aria-label={copy.historyTitle} onClick={onOpenHistory}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 5.8h8" />
+              <path d="M8 10.1h8" />
+              <path d="M8 14.4h5.8" />
+              <path d="M5.5 4.2h13v15.6l-2.6-1.4-2.6 1.4-2.8-1.4-2.7 1.4-2.7-1.4Z" />
+            </svg>
+          </button>
+          <button type="button" className="onboarding-book-button" aria-label={copy.book} onClick={onOpenOnboarding}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 5.4c2.7-.8 4.9-.5 7 1.1 2.1-1.6 4.3-1.9 7-1.1v13.2c-2.7-.8-4.9-.5-7 1.1-2.1-1.6-4.3-1.9-7-1.1Z" />
+              <path d="M12 6.5v13.2" />
+            </svg>
+          </button>
+        </>
+      ) : null}
+      <button type="button" className="about-open-button" aria-label={copy.aboutTitle} onClick={onOpenAbout}>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 17.2v-5.4" />
+          <path d="M12 7.4h.01" />
+          <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" />
+        </svg>
+      </button>
+      <button type="button" className="language-switch-button" aria-label={languageToggle} onClick={onToggleLanguage}>
+        {languageToggle}
+      </button>
+    </nav>
   )
 }
 
@@ -233,8 +549,16 @@ export function Ritual2DView() {
   const [isLocalAuthBypassed, setIsLocalAuthBypassed] = useState(false)
   const [hasEnteredRitualSpace, setHasEnteredRitualSpace] = useState(!auth.isAuthEnabled)
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false)
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
+  const [isAboutOpen, setIsAboutOpen] = useState(false)
+  const [historyRecords, setHistoryRecords] = useState<LocalHistoryRecord[]>(() => readLocalHistory())
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null)
+  const [isShareGenerating, setIsShareGenerating] = useState(false)
+  const [shareImageUrl, setShareImageUrl] = useState<string | null>(null)
+  const sharePosterRef = useRef<HTMLDivElement | null>(null)
   const [onboardingPage, setOnboardingPage] = useState(0)
   const enterTimerRef = useRef<number | null>(null)
+  const savedHistoryKeyRef = useRef<string | null>(null)
   const currentLineComplete = snapshot.lineRecords.some((line) => line.index === snapshot.lineIndex)
   const canShowCurrentChangeRecord = (change: ManualRitualSnapshot['changeRecords'][number]) => {
     if (change.lineIndex !== snapshot.lineIndex) return false
@@ -252,6 +576,8 @@ export function Ritual2DView() {
     setSeenMarkdown(null)
     setSeenSelection(null)
     setIsSeeingHexagram(false)
+    setIsShareGenerating(false)
+    setShareImageUrl(null)
   }
   const isEntrance = snapshot.step === 'idle' || snapshot.step === 'awaitingQuestion'
   const isReadingHexagram = isSeeingHexagram || seenMarkdown !== null
@@ -275,7 +601,22 @@ export function Ritual2DView() {
   }, [onboardingStorageKey])
   const openOnboarding = useCallback(() => {
     setOnboardingPage(0)
+    setIsHistoryOpen(false)
+    setIsAboutOpen(false)
     setIsOnboardingOpen(true)
+  }, [])
+  const openHistory = useCallback(() => {
+    const records = readLocalHistory()
+    setHistoryRecords(records)
+    setSelectedHistoryId((current) => current ?? records[0]?.id ?? null)
+    setIsOnboardingOpen(false)
+    setIsAboutOpen(false)
+    setIsHistoryOpen((current) => !current)
+  }, [])
+  const openAbout = useCallback(() => {
+    setIsHistoryOpen(false)
+    setIsOnboardingOpen(false)
+    setIsAboutOpen((current) => !current)
   }, [])
   const advanceOnboarding = useCallback(() => {
     if (onboardingPage >= copy.onboardingPages.length - 1) {
@@ -358,12 +699,53 @@ export function Ritual2DView() {
     setIsLocalAuthBypassed(false)
     setHasEnteredRitualSpace(false)
     setAuthNotice(null)
+    setIsHistoryOpen(false)
+    setIsAboutOpen(false)
     ritual.reset()
+  }
+
+  const handleShareReading = async () => {
+    if (!sharePosterRef.current || !snapshot.result || !seenMarkdown || isShareGenerating) return
+
+    setIsShareGenerating(true)
+    setShareImageUrl(null)
+    try {
+      await document.fonts?.ready
+      const dataUrl = await toPng(sharePosterRef.current, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: '#111512',
+      })
+      setShareImageUrl(dataUrl)
+    } catch (error) {
+      console.warn('Share image generation failed.', error)
+    } finally {
+      setIsShareGenerating(false)
+    }
   }
 
   useEffect(() => {
     window.localStorage.setItem(languageStorageKey, language)
   }, [language])
+
+  useEffect(() => {
+    if (!isAboutOpen) return undefined
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsAboutOpen(false)
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isAboutOpen])
+
+  useEffect(() => {
+    const preload = new Image()
+    preload.decoding = 'async'
+    preload.src = window.matchMedia('(max-width: 760px)').matches
+      ? tabletopBackgroundLightWebp
+      : tabletopBackgroundWebp
+  }, [])
 
   useEffect(() => {
     const audio = createNatureAudioController('guantian')
@@ -387,6 +769,19 @@ export function Ritual2DView() {
     const timer = window.setTimeout(() => setIsResultRevealed(true), 1000)
     return () => window.clearTimeout(timer)
   }, [snapshot.result])
+
+  useEffect(() => {
+    if (!snapshot.result || !seenMarkdown) return
+
+    const historyKey = `${snapshot.result.generatedAt}:${seenMarkdown}`
+    if (savedHistoryKeyRef.current === historyKey) return
+
+    const record = makeLocalHistoryRecord(snapshot.result, seenMarkdown)
+    const records = saveLocalHistoryRecord(record)
+    savedHistoryKeyRef.current = historyKey
+    setHistoryRecords(records)
+    setSelectedHistoryId(record.id)
+  }, [seenMarkdown, snapshot.result])
 
   useEffect(() => {
     if (!hasEnteredSpace) return undefined
@@ -424,40 +819,20 @@ export function Ritual2DView() {
             .filter(Boolean)
             .join(' ')}
         >
-          <button type="button" className="language-switch-button" onClick={toggleLanguage}>
-            {copy.languageToggle}
-          </button>
-          {auth.isAuthEnabled && auth.session ? (
-            <div className="account-menu">
-              <button
-                type="button"
-                className="account-button"
-                aria-label={copy.account}
-                onClick={() => setIsAccountOpen((current) => !current)}
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 12.1a3.8 3.8 0 1 0 0-7.6 3.8 3.8 0 0 0 0 7.6Z" />
-                  <path d="M5.4 20.2c.8-3.2 3.2-5 6.6-5s5.8 1.8 6.6 5" />
-                </svg>
-              </button>
-              {isAccountOpen ? (
-                <div className="account-popover">
-                  <span>{auth.user?.email ?? copy.authSignedIn}</span>
-                  <button type="button" onClick={() => void handleSignOut()}>
-                    {copy.authLeave}
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-          {hasEnteredSpace ? (
-            <button type="button" className="onboarding-book-button" aria-label={copy.book} onClick={openOnboarding}>
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M5 5.2c2.7-.8 4.9-.5 7 1.1 2.1-1.6 4.3-1.9 7-1.1v13.5c-2.7-.8-4.9-.5-7 1.1-2.1-1.6-4.3-1.9-7-1.1Z" />
-                <path d="M12 6.3v13.5" />
-              </svg>
-            </button>
-          ) : null}
+          <TopToolBar
+            copy={copy}
+            languageToggle={copy.languageToggle}
+            hasEnteredSpace={hasEnteredSpace}
+            isAccountVisible={Boolean(auth.isAuthEnabled && auth.session)}
+            isAccountOpen={isAccountOpen}
+            accountEmail={auth.user?.email}
+            onToggleLanguage={toggleLanguage}
+            onToggleAccount={() => setIsAccountOpen((current) => !current)}
+            onSignOut={() => void handleSignOut()}
+            onOpenAbout={openAbout}
+            onOpenHistory={openHistory}
+            onOpenOnboarding={openOnboarding}
+          />
           <div className="entrance-scene" aria-hidden="true">
             <div className="entrance-photo" />
             <div className="entrance-air entrance-air-a" />
@@ -570,6 +945,17 @@ export function Ritual2DView() {
               </button>
             </section>
           ) : null}
+          {isHistoryOpen ? (
+            <HistoryPanel
+              records={historyRecords}
+              activeRecordId={selectedHistoryId}
+              copy={copy}
+              language={language}
+              onSelect={(record) => setSelectedHistoryId(record.id)}
+              onClose={() => setIsHistoryOpen(false)}
+            />
+          ) : null}
+          {isAboutOpen ? <AboutPanel copy={copy} onClose={() => setIsAboutOpen(false)} /> : null}
 
           {import.meta.env.DEV ? (
             <button
@@ -602,40 +988,20 @@ export function Ritual2DView() {
           .join(' ')}
       >
         <InkLandscape />
-        <button type="button" className="language-switch-button" onClick={toggleLanguage}>
-          {copy.languageToggle}
-        </button>
-        {auth.isAuthEnabled && auth.session ? (
-          <div className="account-menu">
-            <button
-              type="button"
-              className="account-button"
-              aria-label={copy.account}
-              onClick={() => setIsAccountOpen((current) => !current)}
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 12.1a3.8 3.8 0 1 0 0-7.6 3.8 3.8 0 0 0 0 7.6Z" />
-                <path d="M5.4 20.2c.8-3.2 3.2-5 6.6-5s5.8 1.8 6.6 5" />
-              </svg>
-            </button>
-            {isAccountOpen ? (
-              <div className="account-popover">
-                <span>{auth.user?.email ?? copy.authSignedIn}</span>
-                <button type="button" onClick={() => void handleSignOut()}>
-                  {copy.authLeave}
-                </button>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-        {hasEnteredSpace ? (
-          <button type="button" className="onboarding-book-button" aria-label={copy.book} onClick={openOnboarding}>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M5 5.2c2.7-.8 4.9-.5 7 1.1 2.1-1.6 4.3-1.9 7-1.1v13.5c-2.7-.8-4.9-.5-7 1.1-2.1-1.6-4.3-1.9-7-1.1Z" />
-              <path d="M12 6.3v13.5" />
-            </svg>
-          </button>
-        ) : null}
+        <TopToolBar
+          copy={copy}
+          languageToggle={copy.languageToggle}
+          hasEnteredSpace={hasEnteredSpace}
+          isAccountVisible={Boolean(auth.isAuthEnabled && auth.session)}
+          isAccountOpen={isAccountOpen}
+          accountEmail={auth.user?.email}
+          onToggleLanguage={toggleLanguage}
+          onToggleAccount={() => setIsAccountOpen((current) => !current)}
+          onSignOut={() => void handleSignOut()}
+          onOpenAbout={openAbout}
+          onOpenHistory={openHistory}
+          onOpenOnboarding={openOnboarding}
+        />
 
         <header className="ritual-2d-header">
           <div>
@@ -843,7 +1209,29 @@ export function Ritual2DView() {
                   />
                 ) : null}
                 {renderInterpretationMarkdown(seenMarkdown)}
+                <div className="share-reading-actions">
+                  <button type="button" onClick={() => void handleShareReading()} disabled={isShareGenerating}>
+                    {isShareGenerating ? copy.shareWriting : copy.shareButton}
+                  </button>
+                </div>
           </section>
+          <div className="share-render-host" aria-hidden="true">
+            <div ref={sharePosterRef}>
+              <SharePoster result={snapshot.result} markdown={seenMarkdown} copy={copy} language={language} />
+            </div>
+          </div>
+          {shareImageUrl ? (
+            <section className="share-preview" aria-label={copy.sharePreviewTitle}>
+              <div>
+                <p>{copy.sharePreviewTitle}</p>
+                <a href={shareImageUrl} download={`guantian-${snapshot.result.generatedAt.slice(0, 10)}.png`}>
+                  {copy.shareSave}
+                </a>
+              </div>
+              <img src={shareImageUrl} alt={copy.sharePreviewTitle} />
+              <small>{copy.shareSaveHint}</small>
+            </section>
+          ) : null}
           <button
             type="button"
             className="reading-home-button"
@@ -897,6 +1285,17 @@ export function Ritual2DView() {
             </button>
           </section>
         ) : null}
+        {isHistoryOpen ? (
+          <HistoryPanel
+            records={historyRecords}
+            activeRecordId={selectedHistoryId}
+            copy={copy}
+            language={language}
+            onSelect={(record) => setSelectedHistoryId(record.id)}
+            onClose={() => setIsHistoryOpen(false)}
+          />
+        ) : null}
+        {isAboutOpen ? <AboutPanel copy={copy} onClose={() => setIsAboutOpen(false)} /> : null}
       </div>
     </StageShell>
   )

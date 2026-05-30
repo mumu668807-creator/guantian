@@ -79,17 +79,19 @@ const regroup = (
   stalks: ManualYarrowStalk[],
   groups: Partial<Record<ManualYarrowGroup, number[]>>,
 ) => {
-  const orderByGroup = new Map<ManualYarrowGroup, number>()
   const groupById = new Map<number, ManualYarrowGroup>()
+  const orderById = new Map<number, number>()
 
   Object.entries(groups).forEach(([group, ids]) => {
-    ids?.forEach((id) => groupById.set(id, group as ManualYarrowGroup))
+    ids?.forEach((id, order) => {
+      groupById.set(id, group as ManualYarrowGroup)
+      orderById.set(id, order)
+    })
   })
 
   return stalks.map((stalk) => {
     const group = groupById.get(stalk.id) ?? stalk.group
-    const order = orderByGroup.get(group) ?? 0
-    orderByGroup.set(group, order + 1)
+    const order = orderById.get(stalk.id) ?? stalk.order
     return makeStalk(stalk.id, group, order)
   })
 }

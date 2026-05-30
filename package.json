@@ -13,6 +13,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "build:iching-json": "node scripts/build_iching_json.ts",
+    "optimize:images": "node scripts/optimize-images.mjs",
     "test:copy": "node scripts/assertCopy.mjs",
     "test:manual-dayan": "node scripts/assertManualDayan.mjs",
     "test:interpretation": "node scripts/assertInterpretation.mjs",
@@ -23,6 +24,7 @@
     "@react-three/fiber": "^9.6.1",
     "@supabase/supabase-js": "^2.106.1",
     "@vercel/analytics": "^2.0.1",
+    "html-to-image": "^1.11.13",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "three": "^0.184.0"
@@ -37,6 +39,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "sharp": "^0.34.5",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12"
