@@ -24,6 +24,7 @@ export type LocalHistoryRecord = {
   movingLines: number[]
   interpretationText: string
   lines: LocalHistoryLineSummary[]
+  note?: string
 }
 
 const historyStorageKey = 'guantian:history:v1'
@@ -38,7 +39,8 @@ const isHistoryRecord = (value: unknown): value is LocalHistoryRecord => {
     typeof record.question === 'string' &&
     typeof record.interpretationText === 'string' &&
     Array.isArray(record.movingLines) &&
-    Array.isArray(record.lines)
+    Array.isArray(record.lines) &&
+    (typeof record.note === 'undefined' || typeof record.note === 'string')
   )
 }
 
@@ -60,6 +62,21 @@ export function saveLocalHistoryRecord(record: LocalHistoryRecord) {
     record,
     ...readLocalHistory().filter((item) => item.id !== record.id),
   ].slice(0, maxHistoryRecords)
+  window.localStorage.setItem(historyStorageKey, JSON.stringify(nextRecords))
+  return nextRecords
+}
+
+export function updateLocalHistoryRecordNote(id: string, note: string): LocalHistoryRecord[] {
+  const normalizedNote = note.trim().slice(0, 140)
+  const nextRecords = readLocalHistory().map((record) => {
+    if (record.id !== id) return record
+    if (!normalizedNote) {
+      const nextRecord = { ...record }
+      delete nextRecord.note
+      return nextRecord
+    }
+    return { ...record, note: normalizedNote }
+  })
   window.localStorage.setItem(historyStorageKey, JSON.stringify(nextRecords))
   return nextRecords
 }

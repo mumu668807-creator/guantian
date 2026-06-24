@@ -17,8 +17,14 @@ import {
   makeLocalHistoryRecord,
   readLocalHistory,
   saveLocalHistoryRecord,
+  updateLocalHistoryRecordNote,
   type LocalHistoryRecord,
 } from '../history/localHistory'
+import {
+  readSupabaseHistory,
+  saveSupabaseHistoryRecord,
+  updateSupabaseHistoryNote,
+} from '../history/supabaseHistory'
 import { useStageScale } from '../hooks/useStageScale'
 import { useManualRitualMachine } from '../state/useManualRitualMachine'
 import { InkLandscape } from './InkLandscape'
@@ -185,12 +191,53 @@ function formatHistoryLines(record: LocalHistoryRecord, copy: RitualCopy, langua
     .join(' / ')
 }
 
+function HistoryNote({
+  record,
+  copy,
+  onNoteChange,
+}: {
+  record: LocalHistoryRecord
+  copy: RitualCopy
+  onNoteChange: (record: LocalHistoryRecord, note: string) => void
+}) {
+  const [isEditingNote, setIsEditingNote] = useState(false)
+  const [draftNote, setDraftNote] = useState(record.note ?? '')
+
+  const commitNote = () => {
+    const nextNote = draftNote.trim().slice(0, 140)
+    setDraftNote(nextNote)
+    setIsEditingNote(false)
+    if (nextNote === (record.note ?? '')) return
+    onNoteChange(record, nextNote)
+  }
+
+  return (
+    <div className="history-note">
+      {isEditingNote ? (
+        <textarea
+          autoFocus
+          maxLength={140}
+          value={draftNote}
+          aria-label={copy.historyNotePlaceholder}
+          onChange={(event) => setDraftNote(event.target.value.slice(0, 140))}
+          onBlur={commitNote}
+        />
+      ) : (
+        <button type="button" onClick={() => setIsEditingNote(true)}>
+          {record.note || copy.historyNotePlaceholder}
+        </button>
+      )}
+    </div>
+  )
+}
+
 function HistoryPanel({
   records,
   activeRecordId,
   copy,
   language,
   onSelect,
+  onNoteChange,
   onClose,
 }: {
   records: LocalHistoryRecord[]
@@ -198,6 +245,7 @@ function HistoryPanel({
   copy: RitualCopy
   language: Language
   onSelect: (record: LocalHistoryRecord) => void
+  onNoteChange: (record: LocalHistoryRecord, note: string) => void
   onClose: () => void
 }) {
   const activeRecord = records.find((record) => record.id === activeRecordId) ?? records[0] ?? null
@@ -251,6 +299,12 @@ function HistoryPanel({
                 </div>
               </dl>
               <small>{formatHistoryLines(activeRecord, copy, language)}</small>
+              <HistoryNote
+                key={activeRecord.id}
+                record={activeRecord}
+                copy={copy}
+                onNoteChange={onNoteChange}
+              />
               <div className="history-interpretation">
                 {renderInterpretationMarkdown(activeRecord.interpretationText)}
               </div>
@@ -606,13 +660,24 @@ export function Ritual2DView() {
     setIsOnboardingOpen(true)
   }, [])
   const openHistory = useCallback(() => {
-    const records = readLocalHistory()
-    setHistoryRecords(records)
-    setSelectedHistoryId((current) => current ?? records[0]?.id ?? null)
+    const localRecords = readLocalHistory()
+    setHistoryRecords(localRecords)
+    setSelectedHistoryId((current) => current ?? localRecords[0]?.id ?? null)
     setIsOnboardingOpen(false)
     setIsAboutOpen(false)
     setIsHistoryOpen((current) => !current)
-  }, [])
+
+    if (!auth.session) return
+
+    readSupabaseHistory()
+      .then((records) => {
+        setHistoryRecords(records)
+        setSelectedHistoryId((current) => current ?? records[0]?.id ?? null)
+      })
+      .catch((error) => {
+        console.warn('Failed to read Supabase guantian history.', error)
+      })
+  }, [auth.session])
   const openAbout = useCallback(() => {
     setIsHistoryOpen(false)
     setIsOnboardingOpen(false)
@@ -724,6 +789,21 @@ export function Ritual2DView() {
     }
   }
 
+  const handleHistoryNoteChange = (record: LocalHistoryRecord, note: string) => {
+    const nextRecords = updateLocalHistoryRecordNote(record.id, note)
+    setHistoryRecords((current) => {
+      const localRecord = nextRecords.find((item) => item.id === record.id)
+      const nextRecord = localRecord ?? { ...record, note: note || undefined }
+      return current.map((item) => (item.id === record.id ? nextRecord : item))
+    })
+
+    if (!auth.session) return
+
+    updateSupabaseHistoryNote(record.id, note).catch((error) => {
+      console.warn('Failed to update Supabase guantian history note.', error)
+    })
+  }
+
   useEffect(() => {
     window.localStorage.setItem(languageStorageKey, language)
   }, [language])
@@ -781,7 +861,18 @@ export function Ritual2DView() {
     savedHistoryKeyRef.current = historyKey
     setHistoryRecords(records)
     setSelectedHistoryId(record.id)
-  }, [seenMarkdown, snapshot.result])
+
+    if (!auth.session?.user.id) return
+
+    saveSupabaseHistoryRecord(record, auth.session.user.id)
+      .then((remoteRecords) => {
+        setHistoryRecords(remoteRecords)
+        setSelectedHistoryId(record.id)
+      })
+      .catch((error) => {
+        console.warn('Failed to save Supabase guantian history.', error)
+      })
+  }, [auth.session, seenMarkdown, snapshot.result])
 
   useEffect(() => {
     if (!hasEnteredSpace) return undefined
@@ -952,6 +1043,7 @@ export function Ritual2DView() {
               copy={copy}
               language={language}
               onSelect={(record) => setSelectedHistoryId(record.id)}
+              onNoteChange={handleHistoryNoteChange}
               onClose={() => setIsHistoryOpen(false)}
             />
           ) : null}
@@ -1028,6 +1120,9 @@ export function Ritual2DView() {
 
         <section className="ritual-2d-table" aria-label="yarrow stalks on the table">
         <div className="wood-table">
+          {snapshot.step === 'chooseSplit' && snapshot.lineIndex === 1 && snapshot.changeIndex === 1 ? (
+            <p className="split-choice-hint">{copy.splitChoiceHint}</p>
+          ) : null}
           <YarrowSvg
             stalks={snapshot.stalks}
             canChooseSplit={snapshot.canChooseSplit}
@@ -1292,6 +1387,7 @@ export function Ritual2DView() {
             copy={copy}
             language={language}
             onSelect={(record) => setSelectedHistoryId(record.id)}
+            onNoteChange={handleHistoryNoteChange}
             onClose={() => setIsHistoryOpen(false)}
           />
         ) : null}
