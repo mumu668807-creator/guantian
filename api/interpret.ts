@@ -60,13 +60,11 @@ const interpretWithLlm = async (prompt: string, env: ReturnType<typeof getLlmEnv
   return { markdown }
 }
 
-export default async function handler(request: Request) {
-  if (request.method === 'OPTIONS') return new Response(null, { status: 204 })
+export function OPTIONS() {
+  return new Response(null, { status: 204 })
+}
 
-  if (request.method !== 'POST') {
-    return json({ error: 'Method not allowed' }, { status: 405 })
-  }
-
+export async function POST(request: Request) {
   try {
     const body = (await request.json()) as { prompt?: unknown }
 

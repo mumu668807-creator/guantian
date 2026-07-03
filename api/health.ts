@@ -14,27 +14,28 @@ const getLlmEnv = () => ({
   model: process.env.LLM_MODEL?.trim() || '',
 })
 
-export default function handler(request: Request) {
-  if (request.method === 'OPTIONS') return new Response(null, { status: 204 })
-
-  if (request.method !== 'GET' && request.method !== 'HEAD') {
-    return json({ error: 'Method not allowed' }, { status: 405 })
-  }
-
+const healthPayload = () => {
   const env = getLlmEnv()
-  const payload = {
+
+  return {
     ok: true,
     provider: env.provider,
     model: env.model,
     hasKey: Boolean(env.apiKey),
   }
+}
 
-  if (request.method === 'HEAD') {
-    return new Response(null, {
-      status: 200,
-      headers: { 'Cache-Control': 'no-store' },
-    })
-  }
+export function OPTIONS() {
+  return new Response(null, { status: 204 })
+}
 
-  return json(payload)
+export function GET() {
+  return json(healthPayload())
+}
+
+export function HEAD() {
+  return new Response(null, {
+    status: 200,
+    headers: { 'Cache-Control': 'no-store' },
+  })
 }
