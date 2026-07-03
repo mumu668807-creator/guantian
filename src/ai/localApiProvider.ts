@@ -1,14 +1,7 @@
 import type { AIProvider } from './provider'
 
 const getInterpretEndpoint = () => {
-  if (!import.meta.env.PROD) return '/api/interpret'
-
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim().replace(/\/+$/, '')
-  if (!apiBaseUrl) {
-    throw new Error('Missing VITE_API_BASE_URL for production interpretation API')
-  }
-
-  return `${apiBaseUrl}/api/interpret`
+  return '/api/interpret'
 }
 
 export const localApiProvider: AIProvider = {

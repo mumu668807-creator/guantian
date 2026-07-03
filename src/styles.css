@@ -2295,6 +2295,46 @@ dd {
   border-color: rgba(55, 64, 59, 0.42);
 }
 
+.support-reading-link {
+  margin-left: 18px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(55, 64, 59, 0.24);
+  color: rgba(40, 46, 41, 0.72);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.support-reading-link:hover {
+  color: rgba(23, 28, 24, 0.9);
+  border-color: rgba(55, 64, 59, 0.42);
+}
+
+.about-support {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(232, 224, 198, 0.1);
+}
+
+.about-support p {
+  margin: 0 0 10px;
+  color: rgba(240, 234, 212, 0.66);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.about-support a {
+  color: rgba(239, 233, 208, 0.72);
+  font-size: 13px;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(229, 224, 200, 0.24);
+  padding-bottom: 3px;
+}
+
+.about-support a:hover {
+  color: rgba(248, 242, 218, 0.9);
+  border-color: rgba(239, 233, 208, 0.5);
+}
+
 .share-render-host {
   position: fixed;
   left: -10000px;
@@ -2694,4 +2734,260 @@ dd {
   --yin-gap: 12px;
   --yao-height: 4px;
   margin: 2px 8px 2px 0;
+}
+
+button,
+input,
+textarea,
+a,
+.yarrow-svg {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 移动端：放弃 1600×900 固定舞台，改为纵向流式布局 */
+@media (max-width: 760px) {
+  html,
+  body {
+    overflow: auto;
+  }
+
+  .stage-shell {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  .ritual-stage {
+    width: 100%;
+    height: auto;
+    min-height: 100dvh;
+    transform: none;
+    overflow: visible;
+  }
+
+  .small-screen-note {
+    display: none;
+  }
+
+  .top-tool-bar {
+    position: fixed;
+    top: calc(10px + env(safe-area-inset-top));
+    right: 12px;
+    gap: 6px;
+  }
+
+  /* 入口页 */
+  .ritual-entrance-shell {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    min-height: 100dvh;
+  }
+
+  .entrance-scene {
+    position: fixed;
+    inset: 0;
+  }
+
+  .ritual-entrance,
+  .ritual-entrance-shell.is-before-entry .ritual-entrance {
+    position: relative;
+    left: auto;
+    bottom: auto;
+    width: 100%;
+    padding: 0 22px calc(52px + env(safe-area-inset-bottom));
+    transform: none;
+    animation-name: quietAppear;
+  }
+
+  .ritual-entrance h1 {
+    font-size: 36px;
+  }
+
+  .entrance-subtitle {
+    max-width: none;
+    margin-bottom: 24px;
+  }
+
+  .entrance-question div {
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  /* 仪式主界面：纵向排布 */
+  .ritual-2d-shell:not(.ritual-entrance-shell) {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+    padding: calc(56px + env(safe-area-inset-top)) 14px calc(30px + env(safe-area-inset-bottom));
+    /* seatedArrive 残留 transform 会让 fixed 子元素退化为相对 shell 定位并撑出横向溢出 */
+    animation: none;
+  }
+
+  .ritual-2d-shell:not(.ritual-entrance-shell)::before,
+  .ritual-2d-shell:not(.ritual-entrance-shell)::after {
+    position: fixed;
+  }
+
+  .ritual-2d-header {
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+  }
+
+  .ritual-2d-header h1 {
+    font-size: 28px;
+  }
+
+  .is-reading-hexagram .ritual-2d-header,
+  .is-reading-hexagram .ritual-2d-table,
+  .is-reading-hexagram .manual-result {
+    display: none;
+  }
+
+  .ritual-2d-table {
+    position: relative;
+    left: auto;
+    top: auto;
+    width: 100%;
+    transform: none;
+  }
+
+  .split-choice-hint {
+    width: calc(100% - 20px);
+    font-size: 11px;
+  }
+
+  .manual-records {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: 100%;
+    max-height: none;
+  }
+
+  .manual-result {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .hexagram-settling,
+  .reading-observing {
+    position: fixed;
+  }
+
+  /* 解读纸页 */
+  .interpretation-note {
+    position: relative;
+    left: auto;
+    top: auto;
+    width: 100%;
+    max-height: none;
+    padding: 22px 18px 26px;
+    transform: none;
+    animation-name: quietAppear;
+  }
+
+  .reading-home-button {
+    position: fixed;
+    right: 18px;
+    bottom: calc(18px + env(safe-area-inset-bottom));
+  }
+
+  .share-preview {
+    position: relative;
+    left: auto;
+    bottom: auto;
+    width: 100%;
+  }
+
+  .share-preview img {
+    max-height: 420px;
+  }
+
+  /* 历史记录：全屏面板 */
+  .history-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr;
+    width: auto;
+    max-height: none;
+    padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+    overflow: auto;
+  }
+
+  .history-list {
+    max-height: 30vh;
+  }
+
+  .history-detail {
+    max-height: none;
+  }
+
+  .history-note textarea {
+    font-size: 16px;
+  }
+
+  /* 关于面板 */
+  .about-veil {
+    position: fixed;
+    inset: 0;
+    place-items: center;
+    padding: 20px 16px;
+    background: rgba(8, 10, 9, 0.55);
+  }
+
+  .about-panel {
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100dvh - 40px);
+    overflow: auto;
+  }
+
+  /* 引导页 */
+  .onboarding-veil {
+    position: fixed;
+    inset: 0;
+  }
+
+  .onboarding-page {
+    width: calc(100% - 40px);
+    min-height: 0;
+    padding: 34px 24px;
+  }
+
+  .onboarding-page p {
+    font-size: 19px;
+  }
+
+  .onboarding-home-button {
+    right: 18px;
+    bottom: calc(22px + env(safe-area-inset-bottom));
+  }
+
+  .onboarding-language-button {
+    top: calc(12px + env(safe-area-inset-top));
+    right: 16px;
+  }
+
+  .debug-complete-button {
+    position: fixed;
+    top: auto;
+    right: auto;
+    bottom: 12px;
+    left: 12px;
+  }
 }

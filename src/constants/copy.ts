@@ -62,6 +62,8 @@ export const COPY_BY_LANGUAGE = {
     sharePreviewTitle: 'The note is ready',
     shareSave: 'Save PNG',
     shareSaveHint: 'On mobile, open or long-press the image to keep it.',
+    supportLine: 'If this reading held something for you, you can leave a cup of tea.',
+    supportButton: 'Leave a cup of tea',
     onboardingPages: [
       'Dayan Ritual is one of the oldest ways of forming a gua in the I Ching.',
       'The old view was simple: change leaves a shape behind.',
@@ -165,6 +167,8 @@ export const COPY_BY_LANGUAGE = {
     sharePreviewTitle: '卦帖已成',
     shareSave: '保存 PNG',
     shareSaveHint: '手机端可打开或长按图片保存。',
+    supportLine: '如果这一卦对你有所照见，可以留下一杯茶。',
+    supportButton: '请一杯茶',
     onboardingPages: [
       '大衍筮法，\n是《易经》中最古老的起卦方式。',
       '古人认为：\n天地运行，\n会在变化中留下“象”。',

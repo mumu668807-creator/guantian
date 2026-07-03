@@ -157,6 +157,9 @@ src/
     provider.ts
     localApiProvider.ts
     mockProvider.ts
+  api/
+    health.ts
+    interpret.ts
   server/
     index.ts
     env.ts
@@ -166,14 +169,15 @@ src/
 ## AI 架构与安全
 
 - 前端优先调用 `localApiProvider`，向同源 `/api/interpret` 发送 prompt。
-- 后端代理位于 `server/`，使用 OpenAI-compatible `chat/completions` 接口，但不在代码里写死 OpenAI、MiMo 或 DeepSeek。
+- 生产后端代理位于 `api/`，作为 Vercel Functions 随前端一起部署；本地开发仍可运行 `server/`。
+- Vercel Functions 和本地代理共用 `server/env.ts`、`server/llmClient.ts`，使用 OpenAI-compatible `chat/completions` 接口，但不在代码里写死 OpenAI、MiMo 或 DeepSeek。
 - 本地配置使用 `.env`，可参考 `.env.example`：
 
 ```bash
-LLM_PROVIDER=mimo
-LLM_API_KEY=your_api_key_here
-LLM_BASE_URL=https://api.example.com/v1
-LLM_MODEL=your-model-name
+LLM_PROVIDER=deepseek
+LLM_API_KEY=your_deepseek_key_here
+LLM_BASE_URL=https://api.deepseek.com/v1
+LLM_MODEL=deepseek-chat
 ```
 
 - 切换 DeepSeek 或其他兼容服务时，只改 `.env`：
@@ -192,6 +196,7 @@ npm run server
 ```
 
 - Vite 开发服务会把 `/api` 代理到 `http://127.0.0.1:8787`。
+- Vercel 生产环境会直接由 `api/interpret.ts` 处理同域 `/api/interpret`，不需要 Railway 或 `VITE_API_BASE_URL`。
 - 真实接口失败时，前端会自动 fallback 到 `mockProvider`。
 - 前端不写入真实 API key。
 - 禁止新增 `VITE_LLM_API_KEY`、`VITE_OPENAI_API_KEY` 这类会暴露 key 的方案。
@@ -201,7 +206,8 @@ npm run server
 
 - 2D 美术仍是 CSS/SVG 占位，不是最终插画。
 - 音频只有接口占位，尚未接入鸟鸣、风声、水流素材。
-- 真实模型代理需要单独运行 `npm run server`；未配置或接口失败时会回到 mockProvider。
+- 本地开发时真实模型代理需要单独运行 `npm run server`；生产环境由 Vercel Functions 承接。
+- 未配置或接口失败时会回到 mockProvider。
 - 旧 3D 代码仍在 bundle 中，后续若长期走 2D，可再拆包或移出默认路径。
 
 ## 下一步

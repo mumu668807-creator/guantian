@@ -36,6 +36,8 @@ type RitualCopy = (typeof COPY_BY_LANGUAGE)[Language]
 
 const languageStorageKey = 'guantian:language'
 
+const supportUrl = (import.meta.env.VITE_SUPPORT_URL as string | undefined)?.trim() ?? ''
+
 const readInitialLanguage = (): Language => {
   const queryLanguage = new URLSearchParams(window.location.search).get('lang')
   if (queryLanguage === 'zh' || queryLanguage === 'en') return queryLanguage
@@ -46,13 +48,15 @@ const readInitialLanguage = (): Language => {
   return 'en'
 }
 
-function StageShell({ children, smallScreenText }: { children: ReactNode; smallScreenText: string }) {
-  const stageScale = useStageScale()
+function StageShell({ children }: { children: ReactNode }) {
+  const { scale, isCompact } = useStageScale()
 
   return (
-    <main className="stage-shell" style={{ '--stage-scale': stageScale } as CSSProperties}>
+    <main
+      className={isCompact ? 'stage-shell is-compact' : 'stage-shell'}
+      style={{ '--stage-scale': isCompact ? 1 : scale } as CSSProperties}
+    >
       <div className="ritual-stage">{children}</div>
-      {stageScale < 0.62 ? <p className="small-screen-note">{smallScreenText}</p> : null}
     </main>
   )
 }
@@ -342,6 +346,14 @@ function AboutPanel({ copy, onClose }: { copy: RitualCopy; onClose: () => void }
             <li>Xiaohongshu: 周锦年zjn</li>
           </ul>
         </div>
+        {supportUrl ? (
+          <div className="about-support">
+            <p>{copy.supportLine}</p>
+            <a href={supportUrl} target="_blank" rel="noreferrer">
+              {copy.supportButton}
+            </a>
+          </div>
+        ) : null}
       </article>
     </section>
   )
@@ -899,7 +911,7 @@ export function Ritual2DView() {
 
   if (isEntrance) {
     return (
-      <StageShell smallScreenText={copy.smallScreen}>
+      <StageShell>
         <div
           className={[
             'ritual-2d-shell',
@@ -1068,7 +1080,7 @@ export function Ritual2DView() {
   }
 
   return (
-    <StageShell smallScreenText={copy.smallScreen}>
+    <StageShell>
       <div
         className={[
           'ritual-2d-shell',
@@ -1308,6 +1320,11 @@ export function Ritual2DView() {
                   <button type="button" onClick={() => void handleShareReading()} disabled={isShareGenerating}>
                     {isShareGenerating ? copy.shareWriting : copy.shareButton}
                   </button>
+                  {supportUrl ? (
+                    <a className="support-reading-link" href={supportUrl} target="_blank" rel="noreferrer">
+                      {copy.supportButton}
+                    </a>
+                  ) : null}
                 </div>
           </section>
           <div className="share-render-host" aria-hidden="true">

@@ -1,6 +1,6 @@
 # CURRENT_STATE
 
-更新时间：2026-05-27
+更新时间：2026-07-03
 
 ## 当前状态
 
@@ -29,6 +29,11 @@
 - 本地历史记录已接入：完成起卦并生成解读后，会把记录保存到 localStorage，不接数据库、不接 Supabase。
 - 一键分享卦帖已接入：解读完成后可用 `html-to-image` 从隐藏 share layout 生成高清 PNG，不截整页。
 - 背景图已优化为 WebP 优先：入口图与分草桌面图保留原 PNG，同时生成桌面/1280 两档 WebP；入口页加载后会提前预加载分草背景。
+- 移动端已适配：760px 以下放弃 1600×900 固定舞台缩放，改为纵向流式布局。`useStageScale` 返回 `{ scale, isCompact }`，`StageShell` 在紧凑视口加 `is-compact` 类且不缩放；全部移动样式收在 `styles.css` 末尾的 `@media (max-width: 760px)` 块里，桌面样式未动。移动端已去掉「建议大屏」提示。
+- 移动端注意：`seatedArrive` 动画 `fill-mode: both` 会残留 `transform: scale(1)`，使 shell 内 `position: fixed` 元素退化为相对 shell 定位并造成横向溢出，移动端已用 `animation: none` 规避；改动画时要留意这一点。
+- `index.html` 已补 SEO 与社交分享元信息（OG/Twitter 卡片、描述、canonical、theme-color、apple web app），`public/og-image.jpg`（1200×630）由入口图生成。
+- 支持入口已接入：配置 `VITE_SUPPORT_URL`（Ko-fi 等打赏页）后，「关于观天」面板和解读纸页底部会显示「请一杯茶」链接；不配置则完全不渲染。文案 key 为 `supportLine` / `supportButton`。
+- 生产解卦后端已迁到 Vercel Functions：`api/health.ts` 与 `api/interpret.ts` 复用 `server/env.ts` / `server/llmClient.ts`，前端生产环境不再需要 `VITE_API_BASE_URL` 或 Railway。
 
 ## 关键文件
 
@@ -43,6 +48,7 @@
 - `src/data/iching64.json`：正式六十四卦资料库。
 - `src/interpretation/interpretationPrompt.ts`：AI 札记 prompt。
 - `src/ai/localApiProvider.ts`：前端调用本地/线上解释接口。
+- `api/health.ts`、`api/interpret.ts`：生产环境 Vercel Functions，同域提供健康检查与解卦代理。
 - `server/index.ts`、`server/env.ts`、`server/llmClient.ts`：本地 LLM 代理。
 - `src/auth/supabaseClient.ts`、`src/auth/useGuantianAuth.ts`：Supabase Auth 与一天一卦。
 - `src/audio/natureAudio.ts`：自然音频控制器。
@@ -72,7 +78,7 @@
 - 自然音频只有基础控制器，缺少完整素材、静音开关和细致音量策略。
 - 历史记录目前只是本地 localStorage 版本，没有跨设备同步、删除、导出或数据库持久化。
 - 旧 3D 代码仍在仓库和构建产物里，增加包体；但暂时不要删除，等 2D 主线稳定后再决定是否封存。
-- 本地 LLM 代理需要单独运行；生产环境需要配置 `VITE_API_BASE_URL`。
+- 本地 LLM 代理需要单独运行；生产环境由 Vercel Functions 承接，不再依赖 Railway。
 - Supabase schema 文件在 README 中被提到，但当前根目录未看到 `supabase/schema.sql`，后续处理数据库前需要确认。
 
 ## 不要随便改
@@ -82,6 +88,7 @@
 - 不要改 `hexagramLookup.ts` 的 binary 推导逻辑，除非明确验证 64 卦映射。
 - 不要把 AI prompt 写进 React 组件；继续放在 `src/interpretation/interpretationPrompt.ts`。
 - 不要让前端保存或读取真实 LLM key。
+- 不要重新引入 `VITE_API_BASE_URL` 作为生产解卦入口，除非明确决定恢复外部后端。
 - 不要把 `claim_daily_cast()` 改成付费、次数促销或增长机制。
 - 不要把本地历史记录直接接到 Supabase；后续若要同步，需要另开一个明确的小任务。
 - 不要删除旧 3D 文件；目前它们是可回退资产。
