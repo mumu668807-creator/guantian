@@ -1,5 +1,3 @@
-import { getLlmEnv } from '../server/env.ts'
-
 const json = (payload: unknown, init?: ResponseInit) =>
   Response.json(payload, {
     ...init,
@@ -8,6 +6,13 @@ const json = (payload: unknown, init?: ResponseInit) =>
       ...init?.headers,
     },
   })
+
+const getLlmEnv = () => ({
+  provider: process.env.LLM_PROVIDER?.trim() || 'custom',
+  apiKey: process.env.LLM_API_KEY?.trim() || '',
+  baseUrl: (process.env.LLM_BASE_URL?.trim() || '').replace(/\/+$/, ''),
+  model: process.env.LLM_MODEL?.trim() || '',
+})
 
 export default function handler(request: Request) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204 })

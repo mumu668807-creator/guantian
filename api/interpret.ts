@@ -1,6 +1,3 @@
-import { getLlmEnv } from '../server/env.ts'
-import { interpretWithLlm } from '../server/llmClient.ts'
-
 const json = (payload: unknown, init?: ResponseInit) =>
   Response.json(payload, {
     ...init,
@@ -9,6 +6,59 @@ const json = (payload: unknown, init?: ResponseInit) =>
       ...init?.headers,
     },
   })
+
+const getLlmEnv = () => ({
+  provider: process.env.LLM_PROVIDER?.trim() || 'custom',
+  apiKey: process.env.LLM_API_KEY?.trim() || '',
+  baseUrl: (process.env.LLM_BASE_URL?.trim() || '').replace(/\/+$/, ''),
+  model: process.env.LLM_MODEL?.trim() || '',
+})
+
+type ChatCompletionResponse = {
+  choices?: Array<{
+    message?: {
+      content?: string
+    }
+  }>
+}
+
+const interpretWithLlm = async (prompt: string, env: ReturnType<typeof getLlmEnv>) => {
+  if (!env.apiKey) throw new Error('Missing required environment variable: LLM_API_KEY')
+  if (!env.baseUrl) throw new Error('Missing required environment variable: LLM_BASE_URL')
+  if (!env.model) throw new Error('Missing required environment variable: LLM_MODEL')
+
+  const response = await fetch(`${env.baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: env.model,
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      temperature: 0.7,
+    }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`${env.provider} LLM request failed: ${response.status} ${errorText.slice(0, 300)}`)
+  }
+
+  const data = (await response.json()) as ChatCompletionResponse
+  const markdown = data.choices?.[0]?.message?.content?.trim()
+
+  if (!markdown) {
+    throw new Error(`${env.provider} LLM response did not include choices[0].message.content`)
+  }
+
+  return { markdown }
+}
 
 export default async function handler(request: Request) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204 })

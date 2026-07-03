@@ -170,7 +170,7 @@ src/
 
 - 前端优先调用 `localApiProvider`，向同源 `/api/interpret` 发送 prompt。
 - 生产后端代理位于 `api/`，作为 Vercel Functions 随前端一起部署；本地开发仍可运行 `server/`。
-- Vercel Functions 和本地代理共用 `server/env.ts`、`server/llmClient.ts`，使用 OpenAI-compatible `chat/completions` 接口，但不在代码里写死 OpenAI、MiMo 或 DeepSeek。
+- Vercel Functions 直接读取 Vercel 环境变量并调用 OpenAI-compatible `chat/completions` 接口；本地代理仍使用 `server/env.ts`、`server/llmClient.ts`。
 - 本地配置使用 `.env`，可参考 `.env.example`：
 
 ```bash

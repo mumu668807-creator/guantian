@@ -33,7 +33,7 @@
 - 移动端注意：`seatedArrive` 动画 `fill-mode: both` 会残留 `transform: scale(1)`，使 shell 内 `position: fixed` 元素退化为相对 shell 定位并造成横向溢出，移动端已用 `animation: none` 规避；改动画时要留意这一点。
 - `index.html` 已补 SEO 与社交分享元信息（OG/Twitter 卡片、描述、canonical、theme-color、apple web app），`public/og-image.jpg`（1200×630）由入口图生成。
 - 支持入口已接入：配置 `VITE_SUPPORT_URL`（Ko-fi 等打赏页）后，「关于观天」面板和解读纸页底部会显示「请一杯茶」链接；不配置则完全不渲染。文案 key 为 `supportLine` / `supportButton`。
-- 生产解卦后端已迁到 Vercel Functions：`api/health.ts` 与 `api/interpret.ts` 复用 `server/env.ts` / `server/llmClient.ts`，前端生产环境不再需要 `VITE_API_BASE_URL` 或 Railway。
+- 生产解卦后端已迁到 Vercel Functions：`api/health.ts` 与 `api/interpret.ts` 直接读取 Vercel 环境变量并调用 OpenAI-compatible `chat/completions`，前端生产环境不再需要 `VITE_API_BASE_URL` 或 Railway。
 
 ## 关键文件
 
