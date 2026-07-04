@@ -1,6 +1,6 @@
 # CURRENT_STATE
 
-更新时间：2026-07-03
+更新时间：2026-07-04
 
 ## 当前状态
 
@@ -34,6 +34,18 @@
 - `index.html` 已补 SEO 与社交分享元信息（OG/Twitter 卡片、描述、canonical、theme-color、apple web app），`public/og-image.jpg`（1200×630）由入口图生成。
 - 支持入口已接入：配置 `VITE_SUPPORT_URL`（Ko-fi 等打赏页）后，「关于观天」面板和解读纸页底部会显示「请一杯茶」链接；不配置则完全不渲染。文案 key 为 `supportLine` / `supportButton`。
 - 生产解卦后端已迁到 Vercel Functions：`api/health.ts` 与 `api/interpret.ts` 直接读取 Vercel 环境变量并调用 OpenAI-compatible `chat/completions`，前端生产环境不再需要 `VITE_API_BASE_URL` 或 Railway。
+- 默认语言按浏览器语言判断：`readInitialLanguage` 无 URL 参数和本地存储时，`navigator.language` 以 zh 开头进中文，否则英文（面向小红书流量）。
+- `html-to-image` 改为分享时动态 import，不进首屏主 chunk。
+- 移动端蓍草已放大：`YarrowSvg` 接受 `compact` prop，紧凑视口用裁掉空白边的 viewBox `44 80 672 366`，蓍草区全出血（负 margin 抵掉 shell padding），移动端爻线笔画加粗到 6.5/7。桌面 viewBox 不变。
+- 卦帖已改为小红书友好的 3:4：1080×1440（输出 2160×2880 @2x），`share-poster` 内部间距字号同步收紧。
+- 解读纸页结尾有「今日一问至此。明日可再来一卦。」（copy key `returnTomorrow`），作为一天一卦的回访提示。
+- PWA 已接入：`public/manifest.json`（standalone、观天、墨绿主题色）+ `icon-192/512.png` + `apple-touch-icon.png`，图标是观卦六爻线条（上两阳下四阴），`favicon.svg` 已从紫色占位闪电换成同款。
+- AI 札记提示词已重写为「案边札记体」：不再输出固定四章模板，改为要点约束加自由形态，中文 400-700 字、英文 250-400 词，开头三句内必须给倾向；按动爻数量注入取辞侧重（无动爻只讲本卦、一爻动以爻辞为核、四爻以上重心移到变卦）；模糊问题收窄作答并提醒下次怎么问；结尾固定输出一行「> 」金句（20-40 字）。
+- 金句链路已接通：`interpretationRenderer` 把「> 」行渲染成 blockquote（纸页与历史面板均有样式）；卦帖 `getShareCoreText` 优先取金句行，取不到再回落旧的长句抽取。
+- `AIInterpretationInput` 增加 `mainTexts` / `supportTexts`（来自 `selectInterpretation` 的主辞辅辞），CONTEXT 块新增 MAIN_TEXTS / SUPPORT_TEXTS；mock provider 靠解析 CONTEXT 块工作，改提示词时 CONTEXT 键名不要动。
+- 两处 LLM 温度已从 0.7 调到 1.0（`server/llmClient.ts` 与 `api/interpret.ts`）；mock 兜底文案也改成札记体带金句行。
+- 新提示词已用线上 DeepSeek 实测五类问题（大事一爻动、小事无动爻、模糊问题、三爻动、五爻动），倾向明确、长度收敛、金句行稳定出现。
+- 注意：本地 `.env` 的 MiMo 服务已下线 `mimo-v2-flash`，已改为 `mimo-v2.5`，但该账户余额不足，本地开发解读会回落 mock；线上 Vercel 用 DeepSeek，正常。
 
 ## 关键文件
 

@@ -37,7 +37,7 @@ LLM_MODEL=deepseek-chat
 ```text
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=你的 Supabase anon public key
-VITE_SUPPORT_URL=你的打赏页链接（可选，如 Ko-fi / Buy Me a Coffee；不配置则不显示支持入口）
+VITE_SUPPORT_URL=你的打赏页链接（可选；国内用户建议爱发电 afdian.com，海外可用 Ko-fi；不配置则不显示支持入口）
 ```
 
 不要在 Vercel 配置 `VITE_LLM_API_KEY`、`VITE_OPENAI_API_KEY`、Supabase `service_role` key，或任何会进入前端 bundle 的真实模型密钥。

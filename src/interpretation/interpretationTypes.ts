@@ -19,6 +19,14 @@ export type AIInterpretationInput = {
     text: string
   }[]
   divinationRule: string
+  mainTexts: {
+    title: string
+    text: string
+  }[]
+  supportTexts: {
+    title: string
+    text: string
+  }[]
 }
 
 export type AIInterpretationOutput = {

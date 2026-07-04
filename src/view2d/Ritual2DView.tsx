@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { toPng } from 'html-to-image'
 import { localApiProvider } from '../ai/localApiProvider'
 import { mockProvider } from '../ai/mockProvider'
 import { claimDailyCast, sendMagicLink, signOut, SupabasePublicError } from '../auth/supabaseClient'
@@ -45,7 +44,7 @@ const readInitialLanguage = (): Language => {
   const storedLanguage = window.localStorage.getItem(languageStorageKey)
   if (storedLanguage === 'zh' || storedLanguage === 'en') return storedLanguage
 
-  return 'en'
+  return window.navigator.language.toLowerCase().startsWith('zh') ? 'zh' : 'en'
 }
 
 function StageShell({ children }: { children: ReactNode }) {
@@ -103,6 +102,15 @@ function stripMarkdownLine(line: string) {
 }
 
 function getShareCoreText(markdown: string, language: Language) {
+  const quoteLine = markdown
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('>'))
+    .map((line) => line.replace(/^>+\s*/, '').replace(/\*/g, '').trim())
+    .filter((line) => line.length >= 8)
+    .at(-1)
+  if (quoteLine) return quoteLine.length > 92 ? `${quoteLine.slice(0, 92)}…` : quoteLine
+
   const lines = markdown
     .split('\n')
     .map(stripMarkdownLine)
@@ -365,6 +373,7 @@ function TopToolBar({
   hasEnteredSpace,
   isAccountVisible,
   isAccountOpen,
+  isAnonymousAccount,
   accountEmail,
   onToggleLanguage,
   onToggleAccount,
@@ -378,6 +387,7 @@ function TopToolBar({
   hasEnteredSpace: boolean
   isAccountVisible: boolean
   isAccountOpen: boolean
+  isAnonymousAccount: boolean
   accountEmail?: string
   onToggleLanguage: () => void
   onToggleAccount: () => void
@@ -403,10 +413,13 @@ function TopToolBar({
           </button>
           {isAccountOpen ? (
             <div className="account-popover">
-              <span>{accountEmail ?? copy.authSignedIn}</span>
-              <button type="button" onClick={onSignOut}>
-                {copy.authLeave}
-              </button>
+              <span>{isAnonymousAccount ? copy.authTemporaryAccount : accountEmail ?? copy.authSignedIn}</span>
+              {isAnonymousAccount ? <small>{copy.authTemporaryHint}</small> : null}
+              {!isAnonymousAccount ? (
+                <button type="button" onClick={onSignOut}>
+                  {copy.authLeave}
+                </button>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -598,6 +611,7 @@ function makeStatusCard(snapshot: ManualRitualSnapshot, copy: RitualCopy) {
 export function Ritual2DView() {
   const ritual = useManualRitualMachine()
   const auth = useGuantianAuth()
+  const { isCompact } = useStageScale()
   const { snapshot } = ritual
   const [language, setLanguage] = useState<Language>(() => readInitialLanguage())
   const copy = COPY_BY_LANGUAGE[language]
@@ -648,7 +662,9 @@ export function Ritual2DView() {
   const isEntrance = snapshot.step === 'idle' || snapshot.step === 'awaitingQuestion'
   const isReadingHexagram = isSeeingHexagram || seenMarkdown !== null
   const isObservingHexagram = isSeeingHexagram && seenMarkdown === null
-  const hasEnteredSpace = !auth.isAuthEnabled || hasEnteredRitualSpace || isLocalAuthBypassed
+  const hasEnteredSpace = !auth.isAuthEnabled || Boolean(auth.session) || hasEnteredRitualSpace || isLocalAuthBypassed
+  const shouldShowEmailFallback =
+    auth.isAuthEnabled && !auth.isAuthLoading && !auth.session && !isLocalAuthBypassed
   const toggleLanguage = () =>
     setLanguage((current) => {
       const nextLanguage = current === 'en' ? 'zh' : 'en'
@@ -695,6 +711,7 @@ export function Ritual2DView() {
     setIsOnboardingOpen(false)
     setIsAboutOpen((current) => !current)
   }, [])
+
   const advanceOnboarding = useCallback(() => {
     if (onboardingPage >= copy.onboardingPages.length - 1) {
       closeOnboarding()
@@ -788,6 +805,7 @@ export function Ritual2DView() {
     setShareImageUrl(null)
     try {
       await document.fonts?.ready
+      const { toPng } = await import('html-to-image')
       const dataUrl = await toPng(sharePosterRef.current, {
         cacheBust: true,
         pixelRatio: 2,
@@ -928,6 +946,7 @@ export function Ritual2DView() {
             hasEnteredSpace={hasEnteredSpace}
             isAccountVisible={Boolean(auth.isAuthEnabled && auth.session)}
             isAccountOpen={isAccountOpen}
+            isAnonymousAccount={auth.isAnonymous}
             accountEmail={auth.user?.email}
             onToggleLanguage={toggleLanguage}
             onToggleAccount={() => setIsAccountOpen((current) => !current)}
@@ -950,7 +969,7 @@ export function Ritual2DView() {
             <p className="entrance-kicker">{copy.appKicker}</p>
             <h1>{copy.appTitle}</h1>
             <p className="entrance-subtitle">{copy.appSubtitle}</p>
-            {auth.isAuthEnabled && !auth.session && !isLocalAuthBypassed ? (
+            {shouldShowEmailFallback ? (
               <div className="entrance-auth" aria-live="polite">
                 <div className="entrance-auth-email">
                   <input
@@ -1098,6 +1117,7 @@ export function Ritual2DView() {
           hasEnteredSpace={hasEnteredSpace}
           isAccountVisible={Boolean(auth.isAuthEnabled && auth.session)}
           isAccountOpen={isAccountOpen}
+          isAnonymousAccount={auth.isAnonymous}
           accountEmail={auth.user?.email}
           onToggleLanguage={toggleLanguage}
           onToggleAccount={() => setIsAccountOpen((current) => !current)}
@@ -1139,6 +1159,7 @@ export function Ritual2DView() {
             stalks={snapshot.stalks}
             canChooseSplit={snapshot.canChooseSplit}
             isReservingOne={snapshot.step === 'reserveOne'}
+            compact={isCompact}
             onChooseSplit={ritual.chooseSplit}
           />
         </div>
@@ -1325,6 +1346,7 @@ export function Ritual2DView() {
                       {copy.supportButton}
                     </a>
                   ) : null}
+                  <p className="return-tomorrow-line">{copy.returnTomorrow}</p>
                 </div>
           </section>
           <div className="share-render-host" aria-hidden="true">

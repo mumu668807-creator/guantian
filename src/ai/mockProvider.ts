@@ -194,103 +194,31 @@ const themeFor = (input: ParsedPrompt): JudgmentTheme => {
 
 const renderZh = (input: ParsedPrompt, theme: JudgmentTheme) => `（模拟判断：尚未接入真实模型服务）
 
-# 一、卦象总诊断
-
 ${theme.tendencyZh}
 
-## 1. 本卦所示：当前局势的根基
-本卦为${input.primaryName}卦。${theme.currentZh}
+本卦为${input.primaryName}卦。${theme.currentZh}${theme.movingZh}
 
-## 2. 动爻所示：真正发生变化的关键点
-${theme.movingZh}
+变卦为${input.changedName}卦。${theme.trendZh}${theme.tensionZh}
 
-## 3. 变卦所示：趋势与可能结果
-变卦为${input.changedName}卦。${theme.trendZh}
+先别做的：${theme.avoidZh.join('')}可以做的：${theme.doZh.join('')}
 
-## 4. 此问的核心矛盾
-${theme.tensionZh}
-
-# 二、现实处境拆解
-
-## 1. 表面问题
-你问的是：${input.question}
-
-## 2. 深层问题
-${theme.basisZh}
-
-## 3. 你最容易误判的地方
-容易把一时的慢、卡、没回应，直接看成最后结果。
-
-## 4. 卦象提醒你的风险
-风险在于用力太早，或者在条件不清时把话说满。
-
-# 三、行动建议
-
-## 1. 现在不要做什么
-${theme.avoidZh.map((item) => `- ${item}`).join('\n')}
-
-## 2. 现在应该做什么
-${theme.doZh.map((item) => `- ${item}`).join('\n')}
-
-## 3. 三日内的小动作
 ${theme.signalZh}
 
-## 4. 这件事的长期原则
-${theme.pushZh}
-
-# 四、卦给你的那句话
-
-${theme.closingZh}`
+> ${theme.closingZh}`
 
 const renderEn = (input: ParsedPrompt, theme: JudgmentTheme) => `(Mock reading: the live model service is not connected.)
 
-# I. Pattern Judgment
-
 ${theme.tendencyEn}
 
-## 1. What the primary gua shows
-The primary gua is ${input.primaryName}. ${theme.currentEn}
+The primary gua is ${input.primaryName}. ${theme.currentEn} ${theme.movingEn}
 
-## 2. What the moving line changes
-${theme.movingEn}
+The changed gua is ${input.changedName}. ${theme.trendEn} ${theme.tensionEn}
 
-## 3. Where the changed gua points
-The changed gua is ${input.changedName}. ${theme.trendEn}
+Better avoided for now: ${theme.avoidEn.join(' ')} Worth doing: ${theme.doEn.join(' ')}
 
-## 4. The central tension
-${theme.tensionEn}
-
-# II. Reading the Situation
-
-## 1. The surface question
-You are asking: ${input.question}
-
-## 2. The deeper question
-${theme.basisEn}
-
-## 3. The likely misread
-The easy mistake is to read slowness, friction, or silence as the final answer before the situation has shown enough.
-
-## 4. The risk shown by the gua
-The risk is premature pressure: acting before the missing condition is visible.
-
-# III. What To Do
-
-## 1. Do not do this now
-${theme.avoidEn.map((item) => `- ${item}`).join('\n')}
-
-## 2. Do this now
-${theme.doEn.map((item) => `- ${item}`).join('\n')}
-
-## 3. A signal to watch within three days
 ${theme.signalEn}
 
-## 4. If you want to move forward
-${theme.pushEn}
-
-# IV. The Sentence This Gua Leaves
-
-${theme.closingEn}`
+> ${theme.closingEn}`
 
 export const mockProvider: AIProvider = {
   async interpret(prompt) {

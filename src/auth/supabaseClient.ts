@@ -66,6 +66,13 @@ export async function sendMagicLink(email: string, language?: string) {
   if (error) throwPublicError(error)
 }
 
+export async function signInAnonymously() {
+  if (!supabase) throw new Error('Supabase is not configured')
+
+  const { error } = await supabase.auth.signInAnonymously()
+  if (error) throwPublicError(error)
+}
+
 export async function signOut() {
   if (!supabase) return
   await supabase.auth.signOut()

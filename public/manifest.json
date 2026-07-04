@@ -1,0 +1,28 @@
+{
+  "name": "观天 Guantian · 大衍筮法",
+  "short_name": "观天",
+  "description": "亲手分蓍草，以最古老的大衍筮法起一卦，观此刻变化往哪里去。",
+  "lang": "zh-CN",
+  "start_url": "/?from=pwa",
+  "display": "standalone",
+  "background_color": "#1b201f",
+  "theme_color": "#1b201f",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

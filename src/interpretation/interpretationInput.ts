@@ -51,5 +51,7 @@ export function buildAIInterpretationInput(
     movingLineNames: movingLineTexts.map((line) => line.title),
     movingLineTexts,
     divinationRule: selection.ruleLabel,
+    mainTexts: selection.primary.map((item) => ({ title: item.title, text: item.text })),
+    supportTexts: selection.secondary.map((item) => ({ title: item.title, text: item.text })),
   }
 }
