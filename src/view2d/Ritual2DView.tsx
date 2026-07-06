@@ -1058,9 +1058,9 @@ export function Ritual2DView() {
           </div>
 
           <section className="ritual-entrance" aria-label={copy.appTitle}>
-            <p className="entrance-kicker">{copy.appKicker}</p>
-            <h1>{copy.appTitle}</h1>
-            <p className="entrance-subtitle">{copy.appSubtitle}</p>
+            <p className="entrance-kicker">{copy.entranceMethodNote}</p>
+            <h1>{copy.appKicker}</h1>
+            <p className="entrance-subtitle">{copy.entranceValueLine}</p>
             {shouldShowEmailFallback ? (
               <div className="entrance-auth" aria-live="polite">
                 <div className="entrance-auth-email">
@@ -1104,26 +1104,35 @@ export function Ritual2DView() {
             ) : null}
             {hasEnteredSpace ? (
               <form
-              className="entrance-question"
-              onSubmit={(event) => {
-                event.preventDefault()
-                beginFromEntrance()
-              }}
-            >
-              <label htmlFor="entrance-question">{copy.questionLabel}</label>
-              <div>
-                <input
-                  id="entrance-question"
-                  value={ritual.question}
-                  onChange={(event) => ritual.setQuestion(event.target.value)}
-                  placeholder={copy.questionPlaceholder}
-                  autoComplete="off"
-                />
-                <button type="submit" disabled={!canBegin || isEnteringRitual || isClaimingCast || auth.isAuthLoading}>
-                  {copy.beginButton}
-                </button>
-              </div>
-              {authNotice ? <p className="entrance-question-notice">{authNotice}</p> : null}
+                className="entrance-question"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  beginFromEntrance()
+                }}
+              >
+                <label htmlFor="entrance-question">{copy.questionLabel}</label>
+                <div className="entrance-question-row">
+                  <input
+                    id="entrance-question"
+                    value={ritual.question}
+                    onChange={(event) => ritual.setQuestion(event.target.value)}
+                    placeholder={copy.questionPlaceholder}
+                    autoComplete="off"
+                  />
+                  <button type="submit" disabled={!canBegin || isEnteringRitual || isClaimingCast || auth.isAuthLoading}>
+                    {copy.beginButton}
+                  </button>
+                </div>
+                <div className="entrance-question-examples" aria-label={copy.questionHint}>
+                  {copy.questionExamples.map((questionExample) => (
+                    <button type="button" key={questionExample} onClick={() => ritual.setQuestion(questionExample)}>
+                      {questionExample}
+                    </button>
+                  ))}
+                </div>
+                <p className="entrance-question-hint">{copy.questionHint}</p>
+                <p className="entrance-question-expectation">{copy.beginExpectation}</p>
+                {authNotice ? <p className="entrance-question-notice">{authNotice}</p> : null}
               </form>
             ) : null}
           </section>

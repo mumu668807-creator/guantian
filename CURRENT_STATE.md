@@ -46,6 +46,7 @@
 - 两处 LLM 温度已从 0.7 调到 1.0（`server/llmClient.ts` 与 `api/interpret.ts`）；mock 兜底文案也改成札记体带金句行。
 - 新提示词已用线上 DeepSeek 实测五类问题（大事一爻动、小事无动爻、模糊问题、三爻动、五爻动），倾向明确、长度收敛、金句行稳定出现。
 - 注意：本地 `.env` 的 MiMo 服务已下线 `mimo-v2-flash`，已改为 `mimo-v2.5`，但该账户余额不足，本地开发解读会回落 mock；线上 Vercel 用 DeepSeek，正常。
+- 入口页信息层级已重排（2026-07-06）：主标题改为「观天」，「大衍筮法 · 以《易经》观变化」降为 kicker 小字，副标题换成人话价值句；问题输入区新增示例胶囊（三个，点击填入输入框）、提问引导小字（人事时限放进一句话）、起筮预期行（十八回分草约两三分钟、一日一卦）；placeholder 改为真实例句；引导遮罩末尾追加「怎么问」一页。copy key 为 entranceMethodNote / entranceValueLine / questionHint / questionExamples / beginExpectation。appTitle / appKicker 的值未动，别处引用不受影响。
 
 ## 关键文件
 
