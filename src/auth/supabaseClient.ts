@@ -66,6 +66,19 @@ export async function sendMagicLink(email: string, language?: string) {
   if (error) throwPublicError(error)
 }
 
+export async function bindEmailToCurrentUser(email: string, language?: string) {
+  if (!supabase) throw new Error('Supabase is not configured')
+
+  const { error } = await supabase.auth.updateUser(
+    { email },
+    {
+      emailRedirectTo: getCurrentPageRedirectUrl(language),
+    },
+  )
+
+  if (error) throwPublicError(error)
+}
+
 export async function signInAnonymously() {
   if (!supabase) throw new Error('Supabase is not configured')
 

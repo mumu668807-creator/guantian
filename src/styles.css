@@ -393,6 +393,27 @@ button:disabled {
   border-color: rgba(239, 233, 208, 0.48);
 }
 
+.account-bind-email {
+  display: grid;
+  gap: 8px;
+}
+
+.account-bind-email input {
+  min-width: 0;
+  min-height: 30px;
+  border: 0;
+  border-bottom: 1px solid rgba(229, 224, 200, 0.2);
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  color: rgba(247, 241, 220, 0.86);
+  padding: 0 2px;
+}
+
+.account-bind-email input::placeholder {
+  color: rgba(232, 229, 214, 0.34);
+}
+
 .history-panel {
   position: absolute;
   top: 86px;

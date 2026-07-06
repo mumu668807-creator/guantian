@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { localApiProvider } from '../ai/localApiProvider'
 import { mockProvider } from '../ai/mockProvider'
-import { claimDailyCast, sendMagicLink, signOut, SupabasePublicError } from '../auth/supabaseClient'
+import {
+  bindEmailToCurrentUser,
+  claimDailyCast,
+  sendMagicLink,
+  signOut,
+  SupabasePublicError,
+} from '../auth/supabaseClient'
 import { useGuantianAuth } from '../auth/useGuantianAuth'
 import { createNatureAudioController } from '../audio/natureAudio'
 import { COPY_BY_LANGUAGE, type Language } from '../constants/copy'
@@ -375,8 +381,15 @@ function TopToolBar({
   isAccountOpen,
   isAnonymousAccount,
   accountEmail,
+  bindEmail,
+  bindNotice,
+  isBindEmailOpen,
+  isBindingEmail,
   onToggleLanguage,
   onToggleAccount,
+  onToggleBindEmail,
+  onBindEmailChange,
+  onSubmitBindEmail,
   onSignOut,
   onOpenAbout,
   onOpenHistory,
@@ -389,8 +402,15 @@ function TopToolBar({
   isAccountOpen: boolean
   isAnonymousAccount: boolean
   accountEmail?: string
+  bindEmail: string
+  bindNotice: string | null
+  isBindEmailOpen: boolean
+  isBindingEmail: boolean
   onToggleLanguage: () => void
   onToggleAccount: () => void
+  onToggleBindEmail: () => void
+  onBindEmailChange: (email: string) => void
+  onSubmitBindEmail: () => void
   onSignOut: () => void
   onOpenAbout: () => void
   onOpenHistory: () => void
@@ -415,6 +435,34 @@ function TopToolBar({
             <div className="account-popover">
               <span>{isAnonymousAccount ? copy.authTemporaryAccount : accountEmail ?? copy.authSignedIn}</span>
               {isAnonymousAccount ? <small>{copy.authTemporaryHint}</small> : null}
+              {isAnonymousAccount ? (
+                <>
+                  <button type="button" onClick={onToggleBindEmail}>
+                    {copy.authBindEmail}
+                  </button>
+                  {isBindEmailOpen ? (
+                    <form
+                      className="account-bind-email"
+                      onSubmit={(event) => {
+                        event.preventDefault()
+                        onSubmitBindEmail()
+                      }}
+                    >
+                      <input
+                        value={bindEmail}
+                        onChange={(event) => onBindEmailChange(event.target.value)}
+                        placeholder={copy.authBindEmailPlaceholder}
+                        inputMode="email"
+                        autoComplete="email"
+                      />
+                      <button type="submit" disabled={!bindEmail.trim() || isBindingEmail}>
+                        {copy.authBindEmailSend}
+                      </button>
+                    </form>
+                  ) : null}
+                  {bindNotice ? <small>{bindNotice}</small> : null}
+                </>
+              ) : null}
               {!isAnonymousAccount ? (
                 <button type="button" onClick={onSignOut}>
                   {copy.authLeave}
@@ -625,6 +673,10 @@ export function Ritual2DView() {
   const [isResultRevealed, setIsResultRevealed] = useState(false)
   const [authEmail, setAuthEmail] = useState('')
   const [authNotice, setAuthNotice] = useState<string | null>(null)
+  const [bindEmail, setBindEmail] = useState('')
+  const [bindEmailNotice, setBindEmailNotice] = useState<string | null>(null)
+  const [isBindEmailOpen, setIsBindEmailOpen] = useState(false)
+  const [isBindingEmail, setIsBindingEmail] = useState(false)
   const [isAccountOpen, setIsAccountOpen] = useState(false)
   const [isLocalAuthBypassed, setIsLocalAuthBypassed] = useState(false)
   const [hasEnteredRitualSpace, setHasEnteredRitualSpace] = useState(!auth.isAuthEnabled)
@@ -771,6 +823,17 @@ export function Ritual2DView() {
     return copy.authError
   }
 
+  const formatBindEmailError = (error: unknown) => {
+    if (error instanceof SupabasePublicError) {
+      const detail = [error.message, error.status ? `status ${error.status}` : null, error.code ?? null]
+        .filter(Boolean)
+        .join(' · ')
+      return `${copy.authBindEmailError}\n${copy.authErrorPrefix}: ${detail}`
+    }
+    if (error instanceof Error) return `${copy.authBindEmailError}\n${copy.authErrorPrefix}: ${error.message}`
+    return copy.authBindEmailError
+  }
+
   const handleMagicLink = async () => {
     if (!authEmail.trim()) return
     setAuthNotice(null)
@@ -784,6 +847,22 @@ export function Ritual2DView() {
     }
   }
 
+  const handleBindEmail = async () => {
+    if (!bindEmail.trim() || isBindingEmail) return
+    setBindEmailNotice(null)
+    setIsBindingEmail(true)
+    try {
+      window.localStorage.setItem(languageStorageKey, language)
+      await bindEmailToCurrentUser(bindEmail.trim(), language)
+      setBindEmailNotice(copy.authBindEmailSent)
+    } catch (error) {
+      console.warn('Email binding failed.', error)
+      setBindEmailNotice(formatBindEmailError(error))
+    } finally {
+      setIsBindingEmail(false)
+    }
+  }
+
   const handleSignOut = async () => {
     await signOut()
     resetInterpretation()
@@ -793,6 +872,9 @@ export function Ritual2DView() {
     setIsLocalAuthBypassed(false)
     setHasEnteredRitualSpace(false)
     setAuthNotice(null)
+    setBindEmail('')
+    setBindEmailNotice(null)
+    setIsBindEmailOpen(false)
     setIsHistoryOpen(false)
     setIsAboutOpen(false)
     ritual.reset()
@@ -948,8 +1030,18 @@ export function Ritual2DView() {
             isAccountOpen={isAccountOpen}
             isAnonymousAccount={auth.isAnonymous}
             accountEmail={auth.user?.email}
+            bindEmail={bindEmail}
+            bindNotice={bindEmailNotice}
+            isBindEmailOpen={isBindEmailOpen}
+            isBindingEmail={isBindingEmail}
             onToggleLanguage={toggleLanguage}
             onToggleAccount={() => setIsAccountOpen((current) => !current)}
+            onToggleBindEmail={() => {
+              setBindEmailNotice(null)
+              setIsBindEmailOpen((current) => !current)
+            }}
+            onBindEmailChange={setBindEmail}
+            onSubmitBindEmail={() => void handleBindEmail()}
             onSignOut={() => void handleSignOut()}
             onOpenAbout={openAbout}
             onOpenHistory={openHistory}
@@ -1119,8 +1211,18 @@ export function Ritual2DView() {
           isAccountOpen={isAccountOpen}
           isAnonymousAccount={auth.isAnonymous}
           accountEmail={auth.user?.email}
+          bindEmail={bindEmail}
+          bindNotice={bindEmailNotice}
+          isBindEmailOpen={isBindEmailOpen}
+          isBindingEmail={isBindingEmail}
           onToggleLanguage={toggleLanguage}
           onToggleAccount={() => setIsAccountOpen((current) => !current)}
+          onToggleBindEmail={() => {
+            setBindEmailNotice(null)
+            setIsBindEmailOpen((current) => !current)
+          }}
+          onBindEmailChange={setBindEmail}
+          onSubmitBindEmail={() => void handleBindEmail()}
           onSignOut={() => void handleSignOut()}
           onOpenAbout={openAbout}
           onOpenHistory={openHistory}
@@ -1132,7 +1234,6 @@ export function Ritual2DView() {
             <p>{copy.appKicker}</p>
             <h1>{copy.appTitle}</h1>
           </div>
-          <span>{copy.modePaused}</span>
         </header>
 
         {import.meta.env.DEV ? (
