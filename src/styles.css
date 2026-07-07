@@ -957,32 +957,6 @@ button:disabled {
   color: rgba(255, 248, 225, 0.96);
 }
 
-.entrance-question-examples {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.entrance-question-examples button {
-  min-width: 0;
-  min-height: 30px;
-  padding: 0 13px;
-  border-color: rgba(229, 224, 200, 0.24);
-  background: rgba(23, 27, 24, 0.18);
-  color: rgba(239, 233, 208, 0.7);
-  font-family: inherit;
-  font-size: 12px;
-  line-height: 1;
-}
-
-.entrance-question-examples button:not(:disabled):hover {
-  border-color: rgba(238, 231, 202, 0.46);
-  background: rgba(31, 36, 31, 0.3);
-  color: rgba(255, 248, 225, 0.9);
-}
-
 .entrance-question-hint,
 .entrance-question-expectation {
   margin: 0;
@@ -996,9 +970,11 @@ button:disabled {
 }
 
 .entrance-question-expectation {
-  margin-top: 5px;
-  color: rgba(230, 226, 210, 0.46);
-  font-size: 12px;
+  margin-top: 16px;
+  color: rgba(239, 234, 214, 0.68);
+  font-size: 14px;
+  letter-spacing: 0.03em;
+  white-space: pre-line;
 }
 
 .ritual-entrance-shell.is-entering-ritual .ritual-entrance {
@@ -2881,7 +2857,7 @@ a,
   .ritual-entrance-shell {
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
+    justify-content: flex-start;
     min-height: 100dvh;
   }
 
@@ -2896,13 +2872,14 @@ a,
     left: auto;
     bottom: auto;
     width: 100%;
-    padding: 0 22px calc(52px + env(safe-area-inset-bottom));
+    padding: calc(25vh + env(safe-area-inset-top)) 22px calc(44px + env(safe-area-inset-bottom));
     transform: none;
     animation-name: quietAppear;
   }
 
   .ritual-entrance h1 {
-    font-size: 34px;
+    margin-bottom: 52px;
+    font-size: 52px;
   }
 
   .entrance-subtitle {
@@ -2911,7 +2888,7 @@ a,
   }
 
   .entrance-question {
-    margin-top: 18px;
+    margin-top: 0;
   }
 
   .entrance-question-row {
@@ -2920,33 +2897,24 @@ a,
   }
 
   .entrance-question label {
-    margin-bottom: 10px;
-    font-size: 14px;
-  }
-
-  .entrance-question input {
-    min-height: 46px;
+    margin-bottom: 11px;
     font-size: 16px;
   }
 
-  .entrance-question-examples {
-    gap: 7px;
-    margin-top: 13px;
-  }
-
-  .entrance-question-examples button {
-    min-height: 28px;
-    padding: 0 11px;
-    font-size: 11px;
+  .entrance-question input {
+    min-height: 48px;
+    font-size: 17px;
   }
 
   .entrance-question-hint {
-    margin-top: 11px;
-    font-size: 12px;
+    margin-top: 20px;
+    font-size: 13px;
   }
 
   .entrance-question-expectation {
-    font-size: 11px;
+    margin-top: 20px;
+    font-size: 15px;
+    line-height: 1.8;
   }
 
   /* 仪式主界面：纵向排布 */

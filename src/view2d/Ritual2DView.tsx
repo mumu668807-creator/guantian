@@ -1058,9 +1058,7 @@ export function Ritual2DView() {
           </div>
 
           <section className="ritual-entrance" aria-label={copy.appTitle}>
-            <p className="entrance-kicker">{copy.entranceMethodNote}</p>
             <h1>{copy.appKicker}</h1>
-            <p className="entrance-subtitle">{copy.entranceValueLine}</p>
             {shouldShowEmailFallback ? (
               <div className="entrance-auth" aria-live="polite">
                 <div className="entrance-auth-email">
@@ -1122,13 +1120,6 @@ export function Ritual2DView() {
                   <button type="submit" disabled={!canBegin || isEnteringRitual || isClaimingCast || auth.isAuthLoading}>
                     {copy.beginButton}
                   </button>
-                </div>
-                <div className="entrance-question-examples" aria-label={copy.questionHint}>
-                  {copy.questionExamples.map((questionExample) => (
-                    <button type="button" key={questionExample} onClick={() => ritual.setQuestion(questionExample)}>
-                      {questionExample}
-                    </button>
-                  ))}
                 </div>
                 <p className="entrance-question-hint">{copy.questionHint}</p>
                 <p className="entrance-question-expectation">{copy.beginExpectation}</p>
